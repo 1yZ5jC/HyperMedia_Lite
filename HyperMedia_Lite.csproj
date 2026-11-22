@@ -119,6 +119,7 @@
     <Compile Include="App.xaml.cs">
       <DependentUpon>App.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Services\AccentColorService.cs" />
     <Compile Include="EditPage.xaml.cs">
       <DependentUpon>EditPage.xaml</DependentUpon>
     </Compile>
@@ -142,6 +143,7 @@
     <Compile Include="Models\ImageInfoModel.cs" />
     <Compile Include="Models\LibraryGroups.cs" />
     <Compile Include="Models\MediaItem.cs" />
+    <Compile Include="Models\Playlist.cs" />
     <Compile Include="Models\NavItem.cs" />
     <Compile Include="Services\ImageEditService.cs" />
     <Compile Include="Services\ImageInfoService.cs" />
@@ -152,10 +154,12 @@
     <Compile Include="Services\OnlineLyrics.cs" />
     <Compile Include="Services\SubtitleParser.cs" />
     <Compile Include="Services\SubtitleService.cs" />
+    <Compile Include="Services\SystemMediaControlsService.cs" />
     <Compile Include="Shared\DesktopLyricsBridge.cs" />
     <Compile Include="Services\LibraryService.cs" />
     <Compile Include="Services\PhotoViewerSettings.cs" />
     <Compile Include="Services\PlaybackService.cs" />
+    <Compile Include="Services\PlaylistService.cs" />
     <Compile Include="Services\ThemeService.cs" />
     <Compile Include="ViewModels\MainViewModel.cs" />
   </ItemGroup>

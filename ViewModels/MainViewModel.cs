@@ -31,6 +31,7 @@ namespace HyperMedia_Lite.ViewModels
         private const string FavoritesKey = "FavoritePaths";
 
         private readonly LibraryService _library = new LibraryService();
+        private readonly PlaylistService _playlists = new PlaylistService();
         private readonly PlaybackService _playback = PlaybackService.Current;
         private readonly HashSet<string> _favorites = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly List<MediaItem> _allItems = new List<MediaItem>();
@@ -53,6 +54,7 @@ namespace HyperMedia_Lite.ViewModels
 
         public ObservableCollection<NavItem> NavItems { get; } = new ObservableCollection<NavItem>();
         public ObservableCollection<MediaItem> CurrentItems { get; } = new ObservableCollection<MediaItem>();
+        public ObservableCollection<Playlist> Playlists { get; } = new ObservableCollection<Playlist>();
         public ObservableCollection<MediaItem> Songs { get; } = new ObservableCollection<MediaItem>();
         public ObservableCollection<AlbumCard> Albums { get; } = new ObservableCollection<AlbumCard>();
         public ObservableCollection<ArtistCard> Artists { get; } = new ObservableCollection<ArtistCard>();
@@ -73,6 +75,11 @@ namespace HyperMedia_Lite.ViewModels
         public RelayCommand ClearSubtitleCommand { get; }
         public RelayCommand SeekToLyricCommand { get; }
         public RelayCommand CycleRateCommand { get; }
+        public RelayCommand CreatePlaylistCommand { get; }
+        public RelayCommand DeletePlaylistCommand { get; }
+        public RelayCommand RenamePlaylistCommand { get; }
+        public RelayCommand TogglePlaylistItemCommand { get; }
+        public RelayCommand PlayPlaylistCommand { get; }
         public RelayCommand ExpandPlayerCommand { get; }
         public RelayCommand ClearArtistFilterCommand { get; }
 
@@ -104,6 +111,51 @@ namespace HyperMedia_Lite.ViewModels
                 }
             });
             ClearSubtitleCommand = new RelayCommand(_ => ClearSubtitles());
+            CreatePlaylistCommand = new RelayCommand(async parameter =>
+            {
+                string name = parameter as string;
+                var playlist = await _playlists.CreateAsync(name);
+                await RefreshPlaylistsAsync();
+                Select(NavTarget.Playlists);
+            });
+            DeletePlaylistCommand = new RelayCommand(async parameter =>
+            {
+                if (parameter is Playlist playlist)
+                {
+                    await _playlists.DeleteAsync(playlist);
+                    await RefreshPlaylistsAsync();
+                }
+            });
+            RenamePlaylistCommand = new RelayCommand(async parameter =>
+            {
+                if (parameter is Playlist playlist)
+                {
+                    await _playlists.RenameAsync(playlist, playlist.Name);
+                    await RefreshPlaylistsAsync();
+                }
+            });
+            TogglePlaylistItemCommand = new RelayCommand(async parameter =>
+            {
+                if (parameter is Playlist playlist && _playback.CurrentItem != null)
+                {
+                    await _playlists.ToggleItemAsync(playlist, _playback.CurrentItem.Path);
+                    await RefreshPlaylistsAsync();
+                }
+            });
+            PlayPlaylistCommand = new RelayCommand(async parameter =>
+            {
+                if (parameter is Playlist playlist)
+                {
+                    var items = playlist.ItemPaths
+                        .Select(path => _allItems.FirstOrDefault(i => i.Path == path))
+                        .Where(i => i != null && i.Kind != MediaKind.Photo)
+                        .ToList();
+                    if (items.Count == 0) return;
+                    await _playback.PlayQueueAsync(items, items[0]);
+                    PlayerRequested?.Invoke(this, items[0]);
+                    OnPlaybackItemChanged(this, EventArgs.Empty);
+                }
+            });
             CycleRateCommand = new RelayCommand(_ =>
             {
                 double[] rates = { 0.5, 0.75, 1.0, 1.25, 1.5, 2.0 };
@@ -134,6 +186,7 @@ namespace HyperMedia_Lite.ViewModels
 
             BuildNavItems();
             LoadFavorites();
+            SystemMediaControlsService.Current.Initialize();
 
             _playback.StateChanged += OnPlaybackStateChanged;
             _playback.ItemChanged += OnPlaybackItemChanged;
@@ -148,6 +201,8 @@ namespace HyperMedia_Lite.ViewModels
                 return;
             }
             _isInitialized = true;
+            await _playlists.LoadAsync();
+            await RefreshPlaylistsAsync();
             await RefreshAsync();
             Select(NavTarget.Music);
         }
@@ -161,6 +216,7 @@ namespace HyperMedia_Lite.ViewModels
             NavItems.Add(new NavItem(NavTarget.Video, "\uE714", "视频"));
             NavItems.Add(new NavItem(NavTarget.Photos, "\uE722", "图片"));
             NavItems.Add(new NavItem(NavTarget.Favorites, "\uE734", "收藏"));
+            NavItems.Add(new NavItem(NavTarget.Playlists, "\uE8FD", "播放列表"));
         }
 
         private void LoadFavorites()
@@ -292,6 +348,7 @@ namespace HyperMedia_Lite.ViewModels
             OnPropertyChanged(nameof(IsArtistsVisible));
             OnPropertyChanged(nameof(IsGenericVisible));
             OnPropertyChanged(nameof(IsStatsVisible));
+            OnPropertyChanged(nameof(IsPlaylistsVisible));
             OnPropertyChanged(nameof(StatsText));
             ApplyViews();
         }
@@ -632,12 +689,15 @@ namespace HyperMedia_Lite.ViewModels
             OnPropertyChanged(nameof(PlaybackDuration));
             OnPropertyChanged(nameof(Volume));
             OnPropertyChanged(nameof(RateText));
+            SystemMediaControlsService.Current.UpdateStatus(_playback.IsPlaying);
             UpdateLyricAndSubtitle(_playback.Position.TotalSeconds);
         }
 
         private void OnPlaybackItemChanged(object sender, EventArgs e)
         {
             _activeItem = _playback.CurrentItem;
+            _ = ApplyCoverAccentAsync(_activeItem);
+            _ = SystemMediaControlsService.Current.UpdateAsync(_activeItem, _playback.IsPlaying);
             _ = LoadLyricsAsync(_activeItem);
             _ = LoadSubtitlesAsync(_activeItem);
             OnPropertyChanged(nameof(IsPlayerVisible));
@@ -695,6 +755,32 @@ namespace HyperMedia_Lite.ViewModels
             OnPropertyChanged(nameof(Subtitles));
             OnPropertyChanged(nameof(HasSubtitle));
             UpdateLyricAndSubtitle(_playback.Position.TotalSeconds);
+        }
+
+        private async System.Threading.Tasks.Task RefreshPlaylistsAsync()
+        {
+            Playlists.Clear();
+            foreach (var playlist in _playlists.Playlists)
+            {
+                Playlists.Add(playlist);
+            }
+            OnPropertyChanged(nameof(IsPlaylistsVisible));
+            SetCount(NavTarget.Playlists, Playlists.Count);
+            await System.Threading.Tasks.Task.CompletedTask;
+        }
+
+        private async System.Threading.Tasks.Task ApplyCoverAccentAsync(MediaItem item)
+        {
+            if (item == null)
+            {
+                ThemeService.SetDynamicAccent(null);
+                return;
+            }
+            var color = await AccentColorService.ExtractAsync(item);
+            if (_activeItem == item)
+            {
+                ThemeService.SetDynamicAccent(color);
+            }
         }
 
         private void ClearSubtitles()
@@ -810,13 +896,17 @@ namespace HyperMedia_Lite.ViewModels
 
         public bool ShowMusicTabs => _currentNav == NavTarget.Music;
 
+        public bool IsPlaylistsVisible => _currentNav == NavTarget.Playlists;
+
         public bool IsAlbumsVisible => _currentNav == NavTarget.Music && _selectedTab == 2;
 
         public bool IsSongsVisible => _currentNav == NavTarget.Music && _selectedTab == 0;
 
         public bool IsArtistsVisible => _currentNav == NavTarget.Music && _selectedTab == 1;
 
-        public bool IsGenericVisible => _currentNav != NavTarget.Music && _currentNav != NavTarget.Stats;
+        public bool IsGenericVisible => _currentNav != NavTarget.Music
+            && _currentNav != NavTarget.Stats
+            && _currentNav != NavTarget.Playlists;
 
         public bool IsStatsVisible => _currentNav == NavTarget.Stats;
 

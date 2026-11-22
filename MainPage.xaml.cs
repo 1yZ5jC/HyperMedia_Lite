@@ -171,6 +171,50 @@ namespace HyperMedia_Lite
             }
         }
 
+        private void CreatePlaylist_Click(object sender, RoutedEventArgs e)
+        {
+            _viewModel.CreatePlaylistCommand.Execute("新建播放列表 " + (_viewModel.Playlists.Count + 1));
+        }
+
+        private void DeletePlaylist_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.DataContext is Playlist playlist)
+            {
+                _viewModel.DeletePlaylistCommand.Execute(playlist);
+            }
+        }
+
+        private void Playlist_ItemClick(object sender, ItemClickEventArgs e)
+        {
+            if (e.ClickedItem is Playlist playlist)
+            {
+                _viewModel.PlayPlaylistCommand.Execute(playlist);
+            }
+        }
+
+        private void AddToPlaylist_Click(object sender, RoutedEventArgs e)
+        {
+            var menu = new MenuFlyout { Placement = FlyoutPlacementMode.Bottom };
+            if (_viewModel.Playlists.Count == 0)
+            {
+                menu.Items.Add(new MenuFlyoutItem { Text = "暂无播放列表，请先创建", IsEnabled = false });
+            }
+            else
+            {
+                foreach (var playlist in _viewModel.Playlists)
+                {
+                    var item = new MenuFlyoutItem { Text = playlist.Name };
+                    Playlist target = playlist;
+                    item.Click += (s, args) => _viewModel.TogglePlaylistItemCommand.Execute(target);
+                    menu.Items.Add(item);
+                }
+            }
+            if (sender is Button button)
+            {
+                menu.ShowAt(button);
+            }
+        }
+
         private void SetSortTitle_Click(object sender, RoutedEventArgs e)
         {
             _viewModel.SortIndex = 0;

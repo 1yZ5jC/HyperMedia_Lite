@@ -26,6 +26,15 @@ namespace HyperMedia_Lite.Services
 
         public static Color? CustomAccent { get; private set; }
 
+        private static Color? _dynamicAccent;
+
+        /// <summary>应用封面取色（不持久化；用户手动设置的强调色优先）。</summary>
+        public static void SetDynamicAccent(Color? color)
+        {
+            _dynamicAccent = color;
+            Apply();
+        }
+
         public static void Load()
         {
             var values = ApplicationData.Current.LocalSettings.Values;
@@ -80,7 +89,7 @@ namespace HyperMedia_Lite.Services
             bool dark = CurrentTheme == AppTheme.Dark
                 || (CurrentTheme == AppTheme.System && Application.Current.RequestedTheme == ApplicationTheme.Dark);
 
-            Color accent = CustomAccent ?? GetSystemAccent();
+            Color accent = CustomAccent ?? _dynamicAccent ?? GetSystemAccent();
             Color accentPressed = Darken(accent, 0.82);
 
             SetColor("AccentBrush", accent);

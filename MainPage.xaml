@@ -412,6 +412,12 @@
                                 Command="{Binding AddFilesCommand}" AutomationProperties.Name="添加媒体">
                             <FontIcon Glyph="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
                         </Button>
+                        <Button Width="32" Height="30" Padding="0" BorderThickness="0" Background="Transparent"
+                                Foreground="{StaticResource TextPrimaryBrush}"
+                                Visibility="{Binding IsPlaylistsVisible, Converter={StaticResource BoolToVisibility}}"
+                                Click="CreatePlaylist_Click" AutomationProperties.Name="新建播放列表">
+                            <FontIcon Glyph="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
+                        </Button>
                         <Button x:Name="AddFolderButton" Width="32" Height="30" Padding="0" BorderThickness="0" Background="Transparent"
                                 Foreground="{StaticResource TextPrimaryBrush}"
                                 Command="{Binding AddFolderCommand}" AutomationProperties.Name="导入文件夹">
@@ -579,6 +585,44 @@
                                     <TextBlock Text="{x:Bind Subtitle, Mode=OneWay}" FontSize="12" Margin="0,2,0,0"
                                                TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
                                                Foreground="{StaticResource TextSecondaryBrush}"/>
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </GridView.ItemTemplate>
+                </GridView>
+
+                <!-- 播放列表 -->
+                <GridView x:Name="PlaylistGrid" Padding="28,8,28,20"
+                          ItemsSource="{Binding Playlists}" ItemContainerStyle="{StaticResource CardItemStyle}"
+                          SelectionMode="None" IsItemClickEnabled="True"
+                          ItemClick="Playlist_ItemClick"
+                          Visibility="{Binding IsPlaylistsVisible, Converter={StaticResource BoolToVisibility}}">
+                    <GridView.ItemTemplate>
+                        <DataTemplate x:DataType="models:Playlist">
+                            <Grid Width="200" Margin="6">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="120"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <Border Grid.Row="0" Background="#FF2A3A44" Padding="12">
+                                    <Grid>
+                                        <FontIcon Glyph="&#xE8FD;" FontFamily="Segoe MDL2 Assets"
+                                                  FontSize="40" Foreground="#AAFFFFFF"
+                                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <Button Width="32" Height="32" Padding="0" HorizontalAlignment="Right"
+                                                VerticalAlignment="Top" Background="#99000000" BorderThickness="0"
+                                                Foreground="White" Click="DeletePlaylist_Click"
+                                                ToolTipService.ToolTip="删除" AutomationProperties.Name="删除">
+                                            <FontIcon Glyph="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="13"/>
+                                        </Button>
+                                    </Grid>
+                                </Border>
+                                <StackPanel Grid.Row="1" Margin="2,8,2,0">
+                                    <TextBlock Text="{x:Bind Name, Mode=OneWay}" FontSize="14" FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                               TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="{x:Bind CountText, Mode=OneWay}" FontSize="12"
+                                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0"/>
                                 </StackPanel>
                             </Grid>
                         </DataTemplate>
@@ -975,6 +1019,11 @@
                 <TextBlock Grid.Column="1" Text="正在播放" FontSize="14" Foreground="#CCFFFFFF"
                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Style="{StaticResource OverlayIconButtonStyle}" Width="40" Height="36"
+                            ToolTipService.ToolTip="添加到播放列表" Click="AddToPlaylist_Click"
+                            AutomationProperties.Name="添加到播放列表">
+                        <FontIcon Glyph="&#xE728;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="White"/>
+                    </Button>
                     <Button Style="{StaticResource OverlayIconButtonStyle}" Width="40" Height="36"
                             ToolTipService.ToolTip="全部歌词（点击跳转）" Click="ToggleFullLyric_Click"
                             AutomationProperties.Name="全部歌词">
