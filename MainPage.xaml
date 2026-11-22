@@ -4,10 +4,10 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:models="using:HyperMedia_Lite.Models"
     xmlns:helpers="using:HyperMedia_Lite.Helpers"
+    xmlns:controls="using:HyperMedia_Lite.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    mc:Ignorable="d"
-    RequestedTheme="Light">
+    mc:Ignorable="d">
 
     <Page.Resources>
         <helpers:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
@@ -40,6 +40,46 @@
             <Setter Property="Background" Value="Transparent"/>
         </Style>
 
+        <!-- 深色浮层上的图标按钮：悬停不再变黑，而是浅色半透明反馈 -->
+        <Style x:Key="OverlayIconButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="34"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid x:Name="RootGrid" Background="Transparent">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal"/>
+                                    <VisualState x:Name="PointerOver">
+                                        <VisualState.Setters>
+                                            <Setter Target="RootGrid.Background" Value="#33FFFFFF"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Pressed">
+                                        <VisualState.Setters>
+                                            <Setter Target="RootGrid.Background" Value="#55FFFFFF"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Disabled">
+                                        <VisualState.Setters>
+                                            <Setter Target="RootGrid.Opacity" Value="0.4"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="PlaybackIconButtonStyle" TargetType="Button">
             <Setter Property="Width" Value="40"/>
             <Setter Property="Height" Value="40"/>
@@ -53,8 +93,129 @@
     </Page.Resources>
 
     <Grid x:Name="RootGrid" Background="{StaticResource PageBackgroundBrush}">
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="WindowWidthStates">
+                <!-- 极窄 (<420)：只保留核心操作，其余全部进「更多」菜单 -->
+                <VisualState x:Name="TinyLayout">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="0"/>
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="HeaderPanel.Padding" Value="8,12,8,0"/>
+                        <Setter Target="PageTitleText.FontSize" Value="20"/>
+                        <Setter Target="SortComboBox.Visibility" Value="Collapsed"/>
+                        <Setter Target="ShuffleAllText.Visibility" Value="Collapsed"/>
+                        <Setter Target="RefreshButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="AddFolderButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="PlayerBar.Height" Value="72"/>
+                        <Setter Target="PlayerCoverButton.Width" Value="72"/>
+                        <Setter Target="PlayerContent.Padding" Value="6,2,6,2"/>
+                        <Setter Target="PlayButton.Width" Value="32"/>
+                        <Setter Target="PlayButton.Height" Value="32"/>
+                        <Setter Target="PlayIconGrid.Width" Value="28"/>
+                        <Setter Target="PlayIconGrid.Height" Value="28"/>
+                        <Setter Target="PlayerProgressRow.Margin" Value="0,2,0,0"/>
+                        <Setter Target="PlayerTitlePanel.Visibility" Value="Collapsed"/>
+                        <Setter Target="ModeButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="PlayerTransport.Margin" Value="0"/>
+                        <Setter Target="PrevButton.Margin" Value="4,0,0,0"/>
+                        <Setter Target="PlayButton.Margin" Value="4,0,0,0"/>
+                        <Setter Target="NextButton.Margin" Value="4,0,0,0"/>
+                        <Setter Target="VolumePanel.Visibility" Value="Collapsed"/>
+                        <Setter Target="LyricsButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="MoreButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="ExpandButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="AlbumGrid.Padding" Value="4,6,4,12"/>
+                        <Setter Target="SongList.Padding" Value="4,6,4,12"/>
+                        <Setter Target="ArtistGrid.Padding" Value="4,6,4,12"/>
+                        <Setter Target="GenericGrid.Padding" Value="4,6,4,12"/>
+                        <Setter Target="ZoomSlider.Width" Value="60"/>
+                        <Setter Target="FlipHButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="FlipVButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="HeaderOverflowButton.Visibility" Value="Visible"/>
+                        <Setter Target="PlayerOverflowButton.Visibility" Value="Visible"/>
+                        <Setter Target="PhotoOverflowButton.Visibility" Value="Visible"/>
+                    </VisualState.Setters>
+                </VisualState>
+                <!-- 窄 (420–640)：保留曲目信息与缩小后的音量条 -->
+                <VisualState x:Name="NarrowLayout">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="420"/>
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="HeaderPanel.Padding" Value="12,16,12,0"/>
+                        <Setter Target="PageTitleText.FontSize" Value="22"/>
+                        <Setter Target="SortComboBox.Visibility" Value="Collapsed"/>
+                        <Setter Target="ShuffleAllText.Visibility" Value="Collapsed"/>
+                        <Setter Target="RefreshButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="AddFolderButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="PlayerBar.Height" Value="80"/>
+                        <Setter Target="PlayerCoverButton.Width" Value="80"/>
+                        <Setter Target="PlayerContent.Padding" Value="8,4,8,4"/>
+                        <Setter Target="PlayButton.Width" Value="36"/>
+                        <Setter Target="PlayButton.Height" Value="36"/>
+                        <Setter Target="PlayIconGrid.Width" Value="32"/>
+                        <Setter Target="PlayIconGrid.Height" Value="32"/>
+                        <Setter Target="PlayerProgressRow.Margin" Value="0,4,0,0"/>
+                        <Setter Target="PlayerTitlePanel.MaxWidth" Value="120"/>
+                        <Setter Target="ModeButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="PlayerTransport.Margin" Value="4,0"/>
+                        <Setter Target="PlayerModeText.Visibility" Value="Collapsed"/>
+                        <Setter Target="PrevButton.Margin" Value="6,0,0,0"/>
+                        <Setter Target="PlayButton.Margin" Value="6,0,0,0"/>
+                        <Setter Target="NextButton.Margin" Value="6,0,0,0"/>
+                        <Setter Target="VolumeSlider.Width" Value="52"/>
+                        <Setter Target="LyricsButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="MoreButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="ExpandButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="AlbumGrid.Padding" Value="8,8,8,16"/>
+                        <Setter Target="SongList.Padding" Value="8,8,8,16"/>
+                        <Setter Target="ArtistGrid.Padding" Value="8,8,8,16"/>
+                        <Setter Target="GenericGrid.Padding" Value="8,8,8,16"/>
+                        <Setter Target="ZoomSlider.Width" Value="80"/>
+                        <Setter Target="FlipHButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="FlipVButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="HeaderOverflowButton.Visibility" Value="Visible"/>
+                        <Setter Target="PlayerOverflowButton.Visibility" Value="Visible"/>
+                        <Setter Target="PhotoOverflowButton.Visibility" Value="Visible"/>
+                    </VisualState.Setters>
+                </VisualState>
+                <!-- 中等窗口：保留主要控件，收紧间距 -->
+                <VisualState x:Name="MediumLayout">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="641"/>
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="HeaderPanel.Padding" Value="20,20,20,0"/>
+                        <Setter Target="PlayerTransport.Margin" Value="12,0"/>
+                        <Setter Target="LyricsButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="MoreButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="AlbumGrid.Padding" Value="16,12,16,16"/>
+                        <Setter Target="SongList.Padding" Value="16,12,16,16"/>
+                        <Setter Target="ArtistGrid.Padding" Value="16,12,16,16"/>
+                        <Setter Target="GenericGrid.Padding" Value="16,12,16,16"/>
+                        <Setter Target="HeaderOverflowButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="PlayerOverflowButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="PhotoOverflowButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="ModeButton.Visibility" Value="Visible"/>
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="WideLayout">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="1024"/>
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="HeaderOverflowButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="PlayerOverflowButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="PhotoOverflowButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="ModeButton.Visibility" Value="Visible"/>
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="92"/>
+            <ColumnDefinition x:Name="RailColumn" Width="72"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
@@ -67,19 +228,13 @@
             </Grid.RowDefinitions>
 
             <StackPanel Grid.Row="0" Margin="0,8,0,0">
-                <Button Width="48" Height="48" Margin="22,0,0,0" Padding="0"
-                        Background="Transparent" BorderThickness="0"
-                        Foreground="{StaticResource NavForegroundBrush}"
-                        Click="Back_Click" AutomationProperties.Name="返回">
-                    <FontIcon Glyph="&#xE72B;" FontFamily="Segoe MDL2 Assets" FontSize="18"/>
-                </Button>
-                <Button x:Name="HamburgerButton" Width="48" Height="48" Margin="22,8,0,0" Padding="0"
+                <Button Width="40" Height="40" Margin="16,0,0,0" Padding="0"
                         Background="Transparent" BorderThickness="0"
                         Foreground="{StaticResource NavForegroundBrush}"
                         Click="Hamburger_Click" AutomationProperties.Name="菜单">
                     <FontIcon Glyph="&#xE700;" FontFamily="Segoe MDL2 Assets" FontSize="20"/>
                 </Button>
-                <Button Width="48" Height="48" Margin="22,8,0,0" Padding="0"
+                <Button Width="40" Height="40" Margin="16,6,0,0" Padding="0"
                         Background="Transparent" BorderThickness="0"
                         Foreground="{StaticResource NavForegroundBrush}"
                         Click="Search_Click" AutomationProperties.Name="搜索">
@@ -87,16 +242,16 @@
                 </Button>
             </StackPanel>
 
-            <ListView x:Name="RailList" Grid.Row="1" Margin="0,14,0,0"
+            <ListView x:Name="RailList" Grid.Row="1" Margin="0,12,0,0"
                       ItemsSource="{Binding NavItems}"
                       ItemContainerStyle="{StaticResource NavItemStyle}"
                       SelectionMode="None" IsItemClickEnabled="True"
                       ItemClick="NavList_ItemClick">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="models:NavItem">
-                        <Grid Width="92" Height="52">
+                        <Grid Width="72" Height="44">
                             <Rectangle HorizontalAlignment="Left" VerticalAlignment="Center"
-                                       Width="3" Height="26" Fill="{StaticResource AccentBrush}"
+                                       Width="3" Height="22" Fill="{StaticResource AccentBrush}"
                                        Visibility="{x:Bind IsSelected, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"/>
                             <FontIcon HorizontalAlignment="Center" VerticalAlignment="Center"
                                       Glyph="{x:Bind Glyph, Mode=OneWay}"
@@ -107,7 +262,7 @@
                 </ListView.ItemTemplate>
             </ListView>
 
-            <Button Grid.Row="2" Width="48" Height="48" Margin="22,0,0,16" Padding="0"
+            <Button Grid.Row="2" Width="40" Height="40" Margin="16,0,0,12" Padding="0"
                     Background="Transparent" BorderThickness="0"
                     Foreground="{StaticResource NavForegroundBrush}"
                     Click="Settings_Click" AutomationProperties.Name="设置">
@@ -124,8 +279,8 @@
             </Grid.RowDefinitions>
 
             <!-- 头部：标题 / 选项卡 / 工具条 -->
-            <StackPanel Grid.Row="0" Padding="32,24,32,0" Background="{StaticResource SurfaceBrush}">
-                <TextBlock Text="{Binding PageTitle}" FontSize="30" FontWeight="SemiBold"
+            <StackPanel x:Name="HeaderPanel" Grid.Row="0" Padding="32,24,32,0" Background="{StaticResource SurfaceBrush}">
+                <TextBlock x:Name="PageTitleText" Text="{Binding PageTitle}" FontSize="30" FontWeight="SemiBold"
                            Foreground="{StaticResource TextPrimaryBrush}"/>
 
                 <StackPanel Margin="0,12,0,0"
@@ -189,7 +344,7 @@
                                 AutomationProperties.Name="无序播放所有">
                             <StackPanel Orientation="Horizontal">
                                 <FontIcon Glyph="&#xE8B1;" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
-                                <TextBlock Text="{Binding PlayAllText}" Margin="8,0,0,0" FontSize="14"/>
+                                <TextBlock x:Name="ShuffleAllText" Text="{Binding PlayAllText}" Margin="8,0,0,0" FontSize="14"/>
                             </StackPanel>
                         </Button>
                         <Button Margin="24,0,0,0" Padding="0" BorderThickness="0" Background="Transparent"
@@ -204,10 +359,10 @@
                         </Button>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal">
-                        <ComboBox ItemsSource="{Binding SortOptions}" SelectedIndex="{Binding SortIndex, Mode=TwoWay}"
+                        <ComboBox x:Name="SortComboBox" ItemsSource="{Binding SortOptions}" SelectedIndex="{Binding SortIndex, Mode=TwoWay}"
                                   Height="30" MinWidth="100" Margin="0,0,8,0"
                                   AutomationProperties.Name="排序方式"/>
-                        <Button Width="32" Height="30" Padding="0" BorderThickness="0" Background="Transparent"
+                        <Button x:Name="RefreshButton" Width="32" Height="30" Padding="0" BorderThickness="0" Background="Transparent"
                                 Foreground="{StaticResource TextPrimaryBrush}"
                                 Command="{Binding RefreshCommand}" AutomationProperties.Name="刷新媒体库">
                             <FontIcon Glyph="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="14"/>
@@ -216,6 +371,26 @@
                                 Foreground="{StaticResource TextPrimaryBrush}"
                                 Command="{Binding AddFilesCommand}" AutomationProperties.Name="添加媒体">
                             <FontIcon Glyph="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
+                        </Button>
+                        <Button x:Name="AddFolderButton" Width="32" Height="30" Padding="0" BorderThickness="0" Background="Transparent"
+                                Foreground="{StaticResource TextPrimaryBrush}"
+                                Command="{Binding AddFolderCommand}" AutomationProperties.Name="导入文件夹">
+                            <FontIcon Glyph="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
+                        </Button>
+                        <Button x:Name="HeaderOverflowButton" Width="32" Height="30" Padding="0"
+                                Background="Transparent" BorderThickness="0" Foreground="{StaticResource TextPrimaryBrush}"
+                                Visibility="Collapsed" AutomationProperties.Name="更多选项">
+                            <FontIcon Glyph="&#xE712;" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
+                            <Button.Flyout>
+                                <MenuFlyout>
+                                    <MenuFlyoutItem Text="刷新媒体库" Command="{Binding RefreshCommand}"/>
+                                    <MenuFlyoutItem Text="导入文件夹" Command="{Binding AddFolderCommand}"/>
+                                    <MenuFlyoutSeparator/>
+                                    <MenuFlyoutItem Text="按标题排序" Click="SetSortTitle_Click"/>
+                                    <MenuFlyoutItem Text="按最近添加排序" Click="SetSortDate_Click"/>
+                                    <MenuFlyoutItem Text="按时长排序" Click="SetSortDuration_Click"/>
+                                </MenuFlyout>
+                            </Button.Flyout>
                         </Button>
                     </StackPanel>
                 </Grid>
@@ -408,16 +583,20 @@
             </Grid>
 
             <!-- ==================== 底部播放条 ==================== -->
-            <Grid Grid.Row="2" Height="96" Padding="16,8" Background="{StaticResource AccentBrush}"
-                  Visibility="{Binding IsPlayerVisible, Converter={StaticResource BoolToVisibility}}">
+            <!-- 迷你播放器始终常驻；未播放时控件保持可用但无内容 -->
+            <!-- 高度自适应：两行内容（控制 + 整行进度）在任何宽度下都不会被裁切 -->
+            <Grid x:Name="PlayerBar" Grid.Row="2" Height="96" Background="{StaticResource AccentBrush}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" MaxWidth="320">
-                    <Border Width="80" Height="80" Background="{Binding TrackFallbackBrush}">
+                <!-- 全高封面：占据播放条整个高度 -->
+                <Button x:Name="PlayerCoverButton" Width="96" Padding="0" BorderThickness="0"
+                        Background="Transparent" HorizontalContentAlignment="Stretch"
+                        VerticalContentAlignment="Stretch" VerticalAlignment="Stretch"
+                        Click="OpenPlayer_Click" AutomationProperties.Name="展开播放页面">
+                    <Border x:Name="PlayerCoverBorder" Background="{Binding TrackFallbackBrush}">
                         <Grid>
                             <TextBlock Text="{Binding TrackInitial}" FontSize="32" Foreground="White"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -426,51 +605,101 @@
                                    Visibility="{Binding HasTrackThumbnail, Converter={StaticResource BoolToVisibility}}"/>
                         </Grid>
                     </Border>
-                    <StackPanel VerticalAlignment="Center" Margin="14,0,0,0" MaxWidth="210">
-                        <TextBlock Text="{Binding TrackTitle}" FontSize="15" FontWeight="SemiBold"
-                                   Foreground="White" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
-                        <TextBlock Text="{Binding TrackSubtitle}" FontSize="12" Foreground="#DDFFFFFF"
-                                   TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/>
-                    </StackPanel>
-                </StackPanel>
+                </Button>
 
-                <Grid Grid.Column="1" VerticalAlignment="Center" Margin="24,0" MaxWidth="600">
+                <!-- 右侧控制区：上排控制 + 下排整行进度 -->
+                <Grid x:Name="PlayerContent" Grid.Column="1" Padding="16,8,16,8">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center">
-                        <Button Style="{StaticResource PlaybackIconButtonStyle}"
-                                Command="{Binding ToggleShuffleCommand}"
-                                Opacity="{Binding IsShuffle, Converter={StaticResource BoolToOpacityConverter}}"
-                                AutomationProperties.Name="随机播放">
-                            <FontIcon Glyph="&#xE8B1;" FontFamily="Segoe MDL2 Assets" FontSize="18"/>
-                        </Button>
-                        <Button Style="{StaticResource PlaybackIconButtonStyle}" Margin="18,0,0,0"
-                                Command="{Binding PreviousCommand}" AutomationProperties.Name="上一首">
-                            <FontIcon Glyph="&#xE892;" FontFamily="Segoe MDL2 Assets" FontSize="20"/>
-                        </Button>
-                        <Button Style="{StaticResource PlaybackIconButtonStyle}" Width="48" Height="48"
-                                Margin="18,0,0,0" Command="{Binding TogglePlayPauseCommand}"
-                                AutomationProperties.Name="播放或暂停">
-                            <Grid Width="40" Height="40">
-                                <Ellipse Stroke="White" StrokeThickness="1.5"/>
-                                <FontIcon Glyph="{Binding PlayPauseGlyph}" FontFamily="Segoe MDL2 Assets"
-                                          FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Grid>
-                        </Button>
-                        <Button Style="{StaticResource PlaybackIconButtonStyle}" Margin="18,0,0,0"
-                                Command="{Binding NextCommand}" AutomationProperties.Name="下一首">
-                            <FontIcon Glyph="&#xE893;" FontFamily="Segoe MDL2 Assets" FontSize="20"/>
-                        </Button>
-                        <Button Style="{StaticResource PlaybackIconButtonStyle}" Margin="18,0,0,0"
-                                Command="{Binding ToggleRepeatCommand}"
-                                Opacity="{Binding IsRepeat, Converter={StaticResource BoolToOpacityConverter}}"
-                                AutomationProperties.Name="循环播放">
-                            <FontIcon Glyph="&#xE8EE;" FontFamily="Segoe MDL2 Assets" FontSize="18"/>
-                        </Button>
-                    </StackPanel>
-                    <Grid Grid.Row="1" Margin="0,6,0,0">
+
+                    <Grid Grid.Row="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel x:Name="PlayerTitlePanel" Grid.Column="0" VerticalAlignment="Center"
+                                    Margin="0,0,16,0" MaxWidth="220">
+                            <TextBlock Text="{Binding TrackTitle}" FontSize="15" FontWeight="SemiBold"
+                                       Foreground="White" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Text="{Binding TrackSubtitle}" FontSize="12" Foreground="#DDFFFFFF"
+                                       TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/>
+                        </StackPanel>
+
+                        <StackPanel x:Name="PlayerTransport" Grid.Column="1" Orientation="Horizontal"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24,0">
+                            <Button x:Name="PrevButton" Style="{StaticResource PlaybackIconButtonStyle}"
+                                    Command="{Binding PreviousCommand}" AutomationProperties.Name="上一首">
+                                <FontIcon Glyph="&#xE892;" FontFamily="Segoe MDL2 Assets" FontSize="20"/>
+                            </Button>
+                            <Button x:Name="PlayButton" Style="{StaticResource PlaybackIconButtonStyle}" Width="48" Height="48"
+                                    Margin="18,0,0,0" Command="{Binding TogglePlayPauseCommand}"
+                                    AutomationProperties.Name="播放或暂停">
+                                <Grid x:Name="PlayIconGrid" Width="40" Height="40">
+                                    <Ellipse x:Name="PlayCircle" Stroke="White" StrokeThickness="1.5"/>
+                                    <FontIcon Glyph="{Binding PlayPauseGlyph}" FontFamily="Segoe MDL2 Assets"
+                                              FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Grid>
+                            </Button>
+                            <Button x:Name="NextButton" Style="{StaticResource PlaybackIconButtonStyle}" Margin="18,0,0,0"
+                                    Command="{Binding NextCommand}" AutomationProperties.Name="下一首">
+                                <FontIcon Glyph="&#xE893;" FontFamily="Segoe MDL2 Assets" FontSize="20"/>
+                            </Button>
+                        </StackPanel>
+
+                        <StackPanel x:Name="VolumePanel" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                            <!-- 播放顺序按钮移到右侧 -->
+                            <Button x:Name="ModeButton" Width="96" Height="40" Padding="0" Margin="0,0,12,0"
+                                    Background="Transparent" BorderThickness="0" Foreground="White"
+                                    Command="{Binding CyclePlayModeCommand}"
+                                    AutomationProperties.Name="切换播放顺序">
+                                <StackPanel Orientation="Horizontal">
+                                    <FontIcon Glyph="{Binding PlayModeGlyph}" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
+                                    <TextBlock x:Name="PlayerModeText" Text="{Binding PlayModeText}" FontSize="11" Margin="6,0,0,0"
+                                               VerticalAlignment="Center" Foreground="White"/>
+                                </StackPanel>
+                            </Button>
+                            <FontIcon Glyph="&#xE767;" FontFamily="Segoe MDL2 Assets" FontSize="18" Foreground="White"/>
+                            <Slider x:Name="VolumeSlider" Width="120" Minimum="0" Maximum="100" Margin="12,0,0,0"
+                                    Value="{Binding Volume, Mode=TwoWay}" VerticalAlignment="Center"
+                                    Foreground="{StaticResource SliderFillBrush}" Background="{StaticResource SliderTrackBrush}"/>
+                            <Button x:Name="LyricsButton" Style="{StaticResource PlaybackIconButtonStyle}" Width="32" Margin="14,0,0,0"
+                                    AutomationProperties.Name="歌词">
+                                <TextBlock Text="词" FontSize="14" Foreground="White"/>
+                            </Button>
+                            <Button x:Name="ExpandButton" Style="{StaticResource PlaybackIconButtonStyle}" Margin="14,0,0,0"
+                                    Command="{Binding ExpandPlayerCommand}" AutomationProperties.Name="展开播放页面">
+                                <FontIcon Glyph="&#xE740;" FontFamily="Segoe MDL2 Assets" FontSize="18"/>
+                            </Button>
+                            <Button x:Name="MoreButton" Style="{StaticResource PlaybackIconButtonStyle}" Margin="14,0,0,0"
+                                    AutomationProperties.Name="更多">
+                                <FontIcon Glyph="&#xE712;" FontFamily="Segoe MDL2 Assets" FontSize="18"/>
+                            </Button>
+                            <Button x:Name="PlayerOverflowButton" Style="{StaticResource PlaybackIconButtonStyle}"
+                                    Margin="8,0,0,0" Visibility="Collapsed" AutomationProperties.Name="播放选项">
+                                <FontIcon Glyph="&#xE712;" FontFamily="Segoe MDL2 Assets" FontSize="18"/>
+                                <Button.Flyout>
+                                    <MenuFlyout>
+                                        <MenuFlyoutItem Text="展开播放页面" Command="{Binding ExpandPlayerCommand}"/>
+                                        <MenuFlyoutSubItem Text="播放顺序">
+                                            <MenuFlyoutItem Text="顺序播放" Command="{Binding SetPlayModeCommand}" CommandParameter="Sequential"/>
+                                            <MenuFlyoutItem Text="随机播放" Command="{Binding SetPlayModeCommand}" CommandParameter="Shuffle"/>
+                                            <MenuFlyoutItem Text="列表循环" Command="{Binding SetPlayModeCommand}" CommandParameter="RepeatAll"/>
+                                            <MenuFlyoutItem Text="单曲循环" Command="{Binding SetPlayModeCommand}" CommandParameter="RepeatOne"/>
+                                            <MenuFlyoutItem Text="只播放本曲" Command="{Binding SetPlayModeCommand}" CommandParameter="PlayOnce"/>
+                                        </MenuFlyoutSubItem>
+                                        <MenuFlyoutItem Text="歌词"/>
+                                    </MenuFlyout>
+                                </Button.Flyout>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- 下排：进度条占满整行 -->
+                    <Grid x:Name="PlayerProgressRow" Grid.Row="1" Margin="0,6,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
@@ -480,33 +709,18 @@
                                    Foreground="White" Margin="0,0,8,0" VerticalAlignment="Center"/>
                         <Slider Grid.Column="1" Minimum="0" Maximum="{Binding PlaybackDuration}"
                                 Value="{Binding PlaybackPosition, Mode=TwoWay}" VerticalAlignment="Center"
-                                Foreground="White" Background="#66FFFFFF"/>
+                                Foreground="{StaticResource SliderFillBrush}" Background="{StaticResource SliderTrackBrush}"/>
                         <TextBlock Grid.Column="2" Text="{Binding TotalTimeText}" FontSize="11"
                                    Foreground="White" Margin="8,0,0,0" VerticalAlignment="Center"/>
                     </Grid>
                 </Grid>
-
-                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <FontIcon Glyph="&#xE740;" FontFamily="Segoe MDL2 Assets" FontSize="18" Foreground="White"/>
-                    <Slider Width="120" Minimum="0" Maximum="100" Margin="12,0,0,0"
-                            Value="{Binding Volume, Mode=TwoWay}" VerticalAlignment="Center"
-                            Foreground="White" Background="#66FFFFFF"/>
-                    <Button Style="{StaticResource PlaybackIconButtonStyle}" Width="32" Margin="14,0,0,0"
-                            AutomationProperties.Name="歌词">
-                        <TextBlock Text="词" FontSize="14" Foreground="White"/>
-                    </Button>
-                    <Button Style="{StaticResource PlaybackIconButtonStyle}" Margin="14,0,0,0"
-                            AutomationProperties.Name="更多">
-                        <FontIcon Glyph="&#xE712;" FontFamily="Segoe MDL2 Assets" FontSize="18"/>
-                    </Button>
-                </StackPanel>
             </Grid>
         </Grid>
 
         <!-- ==================== 汉堡菜单展开面板 ==================== -->
         <Rectangle x:Name="ClickAway" Grid.ColumnSpan="2" Fill="#00000000"
                    Visibility="Collapsed" Tapped="ClickAway_Tapped"/>
-        <Grid x:Name="MenuOverlay" Grid.ColumnSpan="2" Width="280" HorizontalAlignment="Left"
+        <Grid x:Name="MenuOverlay" Grid.ColumnSpan="2" Width="260" HorizontalAlignment="Left"
               Visibility="Collapsed" Background="{StaticResource NavBackgroundBrush}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
@@ -514,52 +728,55 @@
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
-            <Grid Grid.Row="0" Height="80" Padding="16,20,12,8">
-                <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="HyperMedia" FontSize="18" FontWeight="SemiBold"
-                               Foreground="{StaticResource TextPrimaryBrush}"/>
-                    <TextBlock Text="本地媒体中心" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
-                </StackPanel>
-                <Button Width="32" Height="32" Padding="0" HorizontalAlignment="Right"
+
+            <!-- 汉堡按钮保持在收起时的同一位置 -->
+            <StackPanel Grid.Row="0" Margin="0,8,0,0">
+                <Button Width="40" Height="40" Margin="16,0,0,0" Padding="0"
                         Background="Transparent" BorderThickness="0"
                         Foreground="{StaticResource NavForegroundBrush}"
-                        Click="ClosePane_Click" AutomationProperties.Name="关闭菜单">
-                    <FontIcon Glyph="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="12"/>
+                        Click="Hamburger_Click" AutomationProperties.Name="收起菜单">
+                    <FontIcon Glyph="&#xE700;" FontFamily="Segoe MDL2 Assets" FontSize="20"/>
                 </Button>
-            </Grid>
-            <TextBox x:Name="SearchBox" Grid.Row="1" PlaceholderText="搜索媒体"
-                     Margin="12,0,12,8" TextChanged="SearchBox_TextChanged"
+            </StackPanel>
+
+            <TextBox x:Name="SearchBox" Grid.Row="1" Height="36" Margin="12,6,12,16"
+                     PlaceholderText="搜索媒体" TextChanged="SearchBox_TextChanged"
                      AutomationProperties.Name="搜索媒体"/>
+
             <ListView x:Name="MenuList" Grid.Row="2" ItemsSource="{Binding NavItems}"
                       ItemContainerStyle="{StaticResource NavItemStyle}"
                       SelectionMode="None" IsItemClickEnabled="True"
                       ItemClick="NavList_ItemClick">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="models:NavItem">
-                        <Grid Height="52" Padding="8,0,16,0">
+                        <Grid Height="44">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="3"/>
-                                <ColumnDefinition Width="36"/>
+                                <ColumnDefinition Width="72"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <Rectangle Grid.Column="0" Width="3" Height="26" VerticalAlignment="Center"
-                                       Fill="{StaticResource AccentBrush}"
-                                       Visibility="{x:Bind IsSelected, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"/>
-                            <FontIcon Grid.Column="1" Glyph="{x:Bind Glyph, Mode=OneWay}"
-                                      FontFamily="Segoe MDL2 Assets" FontSize="18" HorizontalAlignment="Center"
-                                      Foreground="{x:Bind IsSelected, Mode=OneWay, Converter={StaticResource BoolToAccentBrush}}"/>
-                            <TextBlock Grid.Column="2" Text="{x:Bind Label, Mode=OneWay}" FontSize="14"
+                            <Grid Grid.Column="0">
+                                <Rectangle HorizontalAlignment="Left" VerticalAlignment="Center"
+                                           Width="3" Height="22" Fill="{StaticResource AccentBrush}"
+                                           Visibility="{x:Bind IsSelected, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"/>
+                                <FontIcon HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          Glyph="{x:Bind Glyph, Mode=OneWay}"
+                                          FontFamily="Segoe MDL2 Assets" FontSize="20"
+                                          Foreground="{x:Bind IsSelected, Mode=OneWay, Converter={StaticResource BoolToAccentBrush}}"/>
+                            </Grid>
+                            <TextBlock Grid.Column="1" Text="{x:Bind Label, Mode=OneWay}" FontSize="14"
                                        VerticalAlignment="Center"
                                        Foreground="{x:Bind IsSelected, Mode=OneWay, Converter={StaticResource BoolToAccentBrush}}"/>
-                            <TextBlock Grid.Column="3" Text="{x:Bind CountText, Mode=OneWay}" FontSize="12"
-                                       VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <TextBlock Grid.Column="2" Text="{x:Bind CountText, Mode=OneWay}" FontSize="12"
+                                       Margin="0,0,16,0" VerticalAlignment="Center"
+                                       Foreground="{StaticResource TextSecondaryBrush}"/>
                         </Grid>
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
-            <Grid Grid.Row="3" BorderBrush="#FFE4E4E4" BorderThickness="0,1,0,0" Padding="8,8">
-                <Button Height="44" Padding="8,0" HorizontalAlignment="Stretch"
+
+            <Grid Grid.Row="3" BorderBrush="#FFE4E4E4" BorderThickness="0,1,0,0" Padding="6,6">
+                <Button Height="40" Padding="8,0" HorizontalAlignment="Stretch"
                         Background="Transparent" BorderThickness="0"
                         Foreground="{StaticResource NavForegroundBrush}"
                         Click="Settings_Click" AutomationProperties.Name="设置">
@@ -573,8 +790,8 @@
 
         <!-- ==================== 正在播放（全屏浮层） ==================== -->
         <Grid x:Name="PlayerOverlay" Grid.ColumnSpan="2" Visibility="Collapsed" Background="#FF0D0D0D">
-            <MediaPlayerElement x:Name="VideoSurface" AreTransportControlsEnabled="False"
-                                Stretch="Uniform" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+            <!-- 14393+ 时在代码中动态注入 MediaPlayerElement；10240 上该 XAML 类型不存在 -->
+            <Grid x:Name="VideoHost" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
             <Grid x:Name="AudioPanel" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center">
                 <StackPanel HorizontalAlignment="Center">
                     <Border Width="280" Height="280" Background="{Binding TrackFallbackBrush}"
@@ -606,11 +823,16 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
                 <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center">
-                    <Button Style="{StaticResource PlaybackIconButtonStyle}" Command="{Binding ToggleShuffleCommand}"
-                            AutomationProperties.Name="随机播放">
-                        <FontIcon Glyph="&#xE8B1;" FontFamily="Segoe MDL2 Assets" FontSize="18"/>
+                    <Button Width="110" Height="40" Padding="0" Margin="0,0,18,0"
+                            Background="Transparent" BorderThickness="0" Foreground="White"
+                            Command="{Binding CyclePlayModeCommand}" AutomationProperties.Name="切换播放顺序">
+                        <StackPanel Orientation="Horizontal">
+                            <FontIcon Glyph="{Binding PlayModeGlyph}" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
+                            <TextBlock Text="{Binding PlayModeText}" FontSize="11" Margin="8,0,0,0"
+                                       VerticalAlignment="Center" Foreground="White"/>
+                        </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource PlaybackIconButtonStyle}" Margin="18,0,0,0"
+                    <Button Style="{StaticResource PlaybackIconButtonStyle}"
                             Command="{Binding PreviousCommand}" AutomationProperties.Name="上一首">
                         <FontIcon Glyph="&#xE892;" FontFamily="Segoe MDL2 Assets" FontSize="20"/>
                     </Button>
@@ -626,10 +848,6 @@
                             Command="{Binding NextCommand}" AutomationProperties.Name="下一首">
                         <FontIcon Glyph="&#xE893;" FontFamily="Segoe MDL2 Assets" FontSize="20"/>
                     </Button>
-                    <Button Style="{StaticResource PlaybackIconButtonStyle}" Margin="18,0,0,0"
-                            Command="{Binding ToggleRepeatCommand}" AutomationProperties.Name="循环播放">
-                        <FontIcon Glyph="&#xE8EE;" FontFamily="Segoe MDL2 Assets" FontSize="18"/>
-                    </Button>
                 </StackPanel>
                 <Grid Grid.Row="1" Margin="0,10,0,0">
                     <Grid.ColumnDefinitions>
@@ -640,28 +858,230 @@
                     <TextBlock Grid.Column="0" Text="{Binding CurrentTimeText}" FontSize="11" Foreground="White"
                                Margin="0,0,8,0" VerticalAlignment="Center"/>
                     <Slider Grid.Column="1" Minimum="0" Maximum="{Binding PlaybackDuration}"
-                            Value="{Binding PlaybackPosition, Mode=TwoWay}" Foreground="White" Background="#66FFFFFF"/>
+                            Value="{Binding PlaybackPosition, Mode=TwoWay}"
+                            Foreground="{StaticResource OverlaySliderFillBrush}"
+                            Background="{StaticResource OverlaySliderTrackBrush}"/>
                     <TextBlock Grid.Column="2" Text="{Binding TotalTimeText}" FontSize="11" Foreground="White"
                                Margin="8,0,0,0" VerticalAlignment="Center"/>
                 </Grid>
             </Grid>
         </Grid>
 
-        <!-- ==================== 图片灯箱 ==================== -->
+        <!-- ==================== 图片灯箱（参考 HyperViewer） ==================== -->
         <Grid x:Name="PhotoOverlay" Grid.ColumnSpan="2" Visibility="Collapsed" Background="#FF000000">
-            <Image x:Name="PhotoImage" Stretch="Uniform" Margin="48,72"/>
-            <Grid Height="64" VerticalAlignment="Top" Padding="16,0">
-                <Button Content="返回" Background="Transparent" Foreground="White" BorderThickness="0"
-                        Click="ClosePhoto_Click" HorizontalAlignment="Left" AutomationProperties.Name="关闭图片"/>
-                <TextBlock x:Name="PhotoTitle" FontSize="14" Foreground="#CCFFFFFF"
-                           HorizontalAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="0" x:Name="InfoColumn"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 主图区 -->
+            <Grid Grid.Column="0">
+                <controls:ImageViewer x:Name="PhotoViewer" Margin="0,56,0,92"
+                                      ZoomFactorChanged="PhotoViewer_ZoomFactorChanged"
+                                      DoubleTappedOccurred="PhotoViewer_DoubleTappedOccurred"/>
+
+                <ProgressRing x:Name="PhotoLoadingRing" Width="44" Height="44"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                              IsActive="False" Visibility="Collapsed" Foreground="White"/>
+
+                <StackPanel x:Name="PhotoFailedPanel" Visibility="Collapsed"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <FontIcon Glyph="&#xE783;" FontFamily="Segoe MDL2 Assets" FontSize="44"
+                              Foreground="#FFFF8080" HorizontalAlignment="Center"/>
+                    <TextBlock Text="无法打开此图片" FontSize="18" Foreground="White"
+                               HorizontalAlignment="Center" Margin="0,12,0,0"/>
+                    <Button Content="重试" HorizontalAlignment="Center" Margin="0,14,0,0"
+                            Padding="20,6" Background="#33FFFFFF" Foreground="White"
+                            BorderThickness="0" Click="PhotoRetry_Click"/>
+                </StackPanel>
+
+                <Button x:Name="PhotoPrevArrow" Width="44" Height="44" Padding="0"
+                        HorizontalAlignment="Left" VerticalAlignment="Center" Margin="16,0,0,0"
+                        Style="{StaticResource OverlayIconButtonStyle}"
+                        ToolTipService.ToolTip="上一张 (←)"
+                        Click="PhotoPrevious_Click" AutomationProperties.Name="上一张">
+                    <FontIcon Glyph="&#xE76B;" FontFamily="Segoe MDL2 Assets" FontSize="18" Foreground="White"/>
+                </Button>
+                <Button x:Name="PhotoNextArrow" Width="44" Height="44" Padding="0"
+                        HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,16,0"
+                        Style="{StaticResource OverlayIconButtonStyle}"
+                        ToolTipService.ToolTip="下一张 (→)"
+                        Click="PhotoNext_Click" AutomationProperties.Name="下一张">
+                    <FontIcon Glyph="&#xE76C;" FontFamily="Segoe MDL2 Assets" FontSize="18" Foreground="White"/>
+                </Button>
+
+                <Border x:Name="SlideProgressHost" Height="3" VerticalAlignment="Bottom"
+                        Background="#33FFFFFF" Visibility="Collapsed">
+                    <ProgressBar x:Name="SlideProgress" Minimum="0" Maximum="1" Height="3"
+                                 BorderThickness="0" Background="Transparent"
+                                 Foreground="{StaticResource AccentBrush}"/>
+                </Border>
             </Grid>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,24">
-                <Button Content="上一张" Margin="0,0,12,0" Background="#33FFFFFF" Foreground="White"
-                        BorderThickness="0" Click="PhotoPrevious_Click"/>
-                <Button Content="下一张" Background="#33FFFFFF" Foreground="White"
-                        BorderThickness="0" Click="PhotoNext_Click"/>
-            </StackPanel>
+
+            <!-- 信息侧栏 -->
+            <Border x:Name="InfoPanel" Grid.Column="1" Visibility="Collapsed"
+                    Margin="0,56,0,92"
+                    Background="#FF1C1C1C" BorderBrush="#FF333333" BorderThickness="1,0,0,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Border Grid.Row="0" Padding="14,10" Background="#FF252525">
+                        <TextBlock Text="图片信息" FontSize="14" FontWeight="SemiBold" Foreground="White"/>
+                    </Border>
+                    <ListView x:Name="InfoList" Grid.Row="1" SelectionMode="None"
+                              IsItemClickEnabled="False" Padding="0,4">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="models:InfoRow">
+                                <Grid Padding="12,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="76"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{x:Bind Key, Mode=OneWay}"
+                                               FontSize="12" Foreground="#FF9A9A9A"/>
+                                    <TextBlock Grid.Column="1" Text="{x:Bind Value, Mode=OneWay}"
+                                               FontSize="12" Foreground="White" TextWrapping="Wrap"
+                                               IsTextSelectionEnabled="True"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+            </Border>
+
+            <!-- 顶部工具栏 -->
+            <Grid Grid.ColumnSpan="2" Height="56" VerticalAlignment="Top" Padding="12,0"
+                  Background="#FF000000">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="返回" Width="48" Height="34" Padding="0"
+                            Style="{StaticResource OverlayIconButtonStyle}"
+                            ToolTipService.ToolTip="返回 (Esc)"
+                            Click="ClosePhoto_Click" AutomationProperties.Name="关闭图片"/>
+                    <TextBlock x:Name="PhotoTitle" FontSize="13" Foreground="#CCFFFFFF"
+                               MaxWidth="260" Margin="12,0,0,0" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Slider x:Name="ZoomSlider" Width="120" Minimum="10" Maximum="1000" StepFrequency="1"
+                            Value="100" VerticalAlignment="Center" Margin="0,0,8,0"
+                            ValueChanged="ZoomSlider_ValueChanged"
+                            Foreground="{StaticResource OverlaySliderFillBrush}"
+                            Background="{StaticResource OverlaySliderTrackBrush}"
+                            AutomationProperties.Name="缩放"/>
+                    <Button Style="{StaticResource OverlayIconButtonStyle}" Margin="0,0,4,0"
+                            ToolTipService.ToolTip="适应窗口 (0)"
+                            Click="Fit_Click" AutomationProperties.Name="适应窗口">
+                        <FontIcon Glyph="&#xE740;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
+                    </Button>
+                    <Button Style="{StaticResource OverlayIconButtonStyle}" Margin="0,0,4,0"
+                            ToolTipService.ToolTip="逆时针旋转"
+                            Click="RotateBack_Click" AutomationProperties.Name="逆时针旋转">
+                        <FontIcon Glyph="&#xE7AD;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
+                    </Button>
+                    <Button Style="{StaticResource OverlayIconButtonStyle}" Margin="0,0,4,0"
+                            ToolTipService.ToolTip="顺时针旋转 (R)"
+                            Click="Rotate_Click" AutomationProperties.Name="顺时针旋转">
+                        <FontIcon Glyph="&#xE7AD;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
+                    </Button>
+                    <Button x:Name="FlipHButton" Style="{StaticResource OverlayIconButtonStyle}" Margin="0,0,4,0"
+                            ToolTipService.ToolTip="水平翻转"
+                            Click="FlipH_Click" AutomationProperties.Name="水平翻转">
+                        <TextBlock Text="↔" FontSize="16" Foreground="White"/>
+                    </Button>
+                    <Button x:Name="FlipVButton" Style="{StaticResource OverlayIconButtonStyle}" Margin="0,0,4,0"
+                            ToolTipService.ToolTip="垂直翻转"
+                            Click="FlipV_Click" AutomationProperties.Name="垂直翻转">
+                        <TextBlock Text="↕" FontSize="16" Foreground="White"/>
+                    </Button>
+                    <Button Style="{StaticResource OverlayIconButtonStyle}" Margin="0,0,4,0"
+                            ToolTipService.ToolTip="图片信息 (I)"
+                            Click="Info_Click" AutomationProperties.Name="图片信息">
+                        <FontIcon Glyph="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
+                    </Button>
+                    <Button Style="{StaticResource OverlayIconButtonStyle}" Margin="0,0,4,0"
+                            ToolTipService.ToolTip="编辑图片"
+                            Click="Edit_Click" AutomationProperties.Name="编辑图片">
+                        <FontIcon Glyph="&#xE70F;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
+                    </Button>
+                    <Button Style="{StaticResource OverlayIconButtonStyle}"
+                            ToolTipService.ToolTip="幻灯片 (空格)"
+                            Click="SlideShow_Click" AutomationProperties.Name="幻灯片">
+                        <FontIcon Glyph="&#xE786;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
+                    </Button>
+                    <Button x:Name="PhotoOverflowButton" Style="{StaticResource OverlayIconButtonStyle}"
+                            Margin="4,0,0,0" Visibility="Collapsed" AutomationProperties.Name="更多图片操作">
+                        <FontIcon Glyph="&#xE712;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
+                        <Button.Flyout>
+                            <MenuFlyout>
+                                <MenuFlyoutItem Text="水平翻转" Click="FlipH_Click"/>
+                                <MenuFlyoutItem Text="垂直翻转" Click="FlipV_Click"/>
+                                <MenuFlyoutItem Text="逆时针旋转" Click="RotateBack_Click"/>
+                                <MenuFlyoutItem Text="顺时针旋转" Click="Rotate_Click"/>
+                                <MenuFlyoutSeparator/>
+                                <MenuFlyoutItem Text="适应窗口" Click="Fit_Click"/>
+                                <MenuFlyoutItem Text="图片信息" Click="Info_Click"/>
+                                <MenuFlyoutItem Text="编辑图片" Click="Edit_Click"/>
+                                <MenuFlyoutItem Text="幻灯片" Click="SlideShow_Click"/>
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+            <!-- 底部胶片条 -->
+            <Grid Grid.ColumnSpan="2" Height="92" VerticalAlignment="Bottom" Background="#FF000000">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Button Grid.Column="0" Style="{StaticResource OverlayIconButtonStyle}" Margin="8,0"
+                        ToolTipService.ToolTip="上一张 (←)"
+                        Click="PhotoPrevious_Click" AutomationProperties.Name="上一张">
+                    <FontIcon Glyph="&#xE76B;" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
+                </Button>
+                <ListView x:Name="Filmstrip" Grid.Column="1" SelectionMode="None"
+                          IsItemClickEnabled="True" ItemClick="Filmstrip_ItemClick"
+                          ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                          ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                    <ListView.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <ItemsStackPanel Orientation="Horizontal"/>
+                        </ItemsPanelTemplate>
+                    </ListView.ItemsPanel>
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="models:MediaItem">
+                            <Border Width="72" Height="56" Margin="3,0" Background="#FF333333"
+                                    BorderBrush="{StaticResource AccentBrush}" BorderThickness="2">
+                                <Grid>
+                                    <TextBlock Text="{x:Bind Initial, Mode=OneWay}" FontSize="22"
+                                               Foreground="#59FFFFFF" HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"
+                                               Visibility="{x:Bind HasThumbnail, Mode=OneWay, ConverterParameter=Invert, Converter={StaticResource BoolToVisibility}}"/>
+                                    <Image Source="{x:Bind Thumbnail, Mode=OneWay}" Stretch="UniformToFill"
+                                           Visibility="{x:Bind HasThumbnail, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"/>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0">
+                    <TextBlock x:Name="PhotoCounter" FontSize="12" Foreground="#CCFFFFFF"
+                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <Button Style="{StaticResource OverlayIconButtonStyle}"
+                            ToolTipService.ToolTip="下一张 (→)"
+                            Click="PhotoNext_Click" AutomationProperties.Name="下一张">
+                        <FontIcon Glyph="&#xE76C;" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
         </Grid>
     </Grid>
 </Page>

@@ -52,13 +52,14 @@ namespace HyperMedia_Lite.ViewModels
         public IReadOnlyList<string> SortOptions { get; } = new[] { "标题", "最近添加", "时长" };
 
         public RelayCommand AddFilesCommand { get; }
+        public RelayCommand AddFolderCommand { get; }
         public RelayCommand RefreshCommand { get; }
         public RelayCommand ShuffleAllCommand { get; }
         public RelayCommand TogglePlayPauseCommand { get; }
         public RelayCommand NextCommand { get; }
         public RelayCommand PreviousCommand { get; }
-        public RelayCommand ToggleShuffleCommand { get; }
-        public RelayCommand ToggleRepeatCommand { get; }
+        public RelayCommand CyclePlayModeCommand { get; }
+        public RelayCommand SetPlayModeCommand { get; }
         public RelayCommand ExpandPlayerCommand { get; }
         public RelayCommand ClearArtistFilterCommand { get; }
 
@@ -69,13 +70,20 @@ namespace HyperMedia_Lite.ViewModels
         public MainViewModel()
         {
             AddFilesCommand = new RelayCommand(_ => _ = AddFilesAsync());
+            AddFolderCommand = new RelayCommand(_ => _ = AddFolderAsync());
             RefreshCommand = new RelayCommand(_ => _ = RefreshAsync());
             ShuffleAllCommand = new RelayCommand(_ => ShuffleAll());
             TogglePlayPauseCommand = new RelayCommand(_ => _playback.TogglePlayPause());
             NextCommand = new RelayCommand(_ => _playback.Next());
             PreviousCommand = new RelayCommand(_ => _playback.Previous());
-            ToggleShuffleCommand = new RelayCommand(_ => _playback.ToggleShuffle());
-            ToggleRepeatCommand = new RelayCommand(_ => _playback.ToggleRepeat());
+            CyclePlayModeCommand = new RelayCommand(_ => _playback.CycleMode());
+            SetPlayModeCommand = new RelayCommand(parameter =>
+            {
+                if (parameter is string text && Enum.TryParse(text, out PlaybackMode mode))
+                {
+                    _playback.SetMode(mode);
+                }
+            });
             ExpandPlayerCommand = new RelayCommand(_ => PlayerRequested?.Invoke(this, _playback.CurrentItem));
             ClearArtistFilterCommand = new RelayCommand(_ => ClearArtistFilter());
 
@@ -172,6 +180,17 @@ namespace HyperMedia_Lite.ViewModels
         private async Task AddFilesAsync()
         {
             var added = await _library.PickFilesAsync();
+            await MergeImportedAsync(added, "个媒体文件");
+        }
+
+        private async Task AddFolderAsync()
+        {
+            var added = await _library.PickFolderAsync();
+            await MergeImportedAsync(added, "个媒体文件（含子文件夹）");
+        }
+
+        private async Task MergeImportedAsync(List<MediaItem> added, string unit)
+        {
             if (added.Count == 0)
             {
                 return;
@@ -189,7 +208,7 @@ namespace HyperMedia_Lite.ViewModels
 
             ApplyViews();
             UpdateNavCounts();
-            StatusMessage = $"已添加 {added.Count} 个媒体文件";
+            StatusMessage = $"已添加 {added.Count} {unit}";
         }
 
         private async Task LoadThumbnailsAsync()
@@ -302,6 +321,18 @@ namespace HyperMedia_Lite.ViewModels
             StatusMessage = "已清除已保存的文件访问权限";
         }
 
+        /// <summary>
+        /// 主题 / 强调色变化后刷新使用转换器的绑定。
+        /// </summary>
+        public void RefreshTheme()
+        {
+            foreach (var item in NavItems)
+            {
+                item.RefreshSelection();
+            }
+            OnPropertyChanged(nameof(TrackFallbackBrush));
+        }
+
         private void ClearArtistFilter()
         {
             ArtistFilter = string.Empty;
@@ -316,7 +347,7 @@ namespace HyperMedia_Lite.ViewModels
                 return;
             }
 
-            _playback.ToggleShuffle(true);
+            _playback.SetMode(PlaybackMode.Shuffle);
             var start = items[new Random().Next(items.Count)];
             _ = _playback.PlayQueueAsync(items, start);
             PlayerRequested?.Invoke(this, start);
@@ -548,6 +579,8 @@ namespace HyperMedia_Lite.ViewModels
             OnPropertyChanged(nameof(PlayPauseGlyph));
             OnPropertyChanged(nameof(IsShuffle));
             OnPropertyChanged(nameof(IsRepeat));
+            OnPropertyChanged(nameof(PlayModeGlyph));
+            OnPropertyChanged(nameof(PlayModeText));
             OnPropertyChanged(nameof(CurrentTimeText));
             OnPropertyChanged(nameof(TotalTimeText));
             OnPropertyChanged(nameof(PlaybackPosition));
@@ -714,6 +747,36 @@ namespace HyperMedia_Lite.ViewModels
         public bool IsShuffle => _playback.IsShuffle;
 
         public bool IsRepeat => _playback.IsRepeat;
+
+        public string PlayModeGlyph
+        {
+            get
+            {
+                switch (_playback.Mode)
+                {
+                    case PlaybackMode.Shuffle: return "\uE8B1";   // 随机
+                    case PlaybackMode.RepeatAll: return "\uE8EE"; // 列表循环
+                    case PlaybackMode.RepeatOne: return "\uE8ED"; // 单曲循环
+                    case PlaybackMode.PlayOnce: return "\uE71A";  // 本曲后停止
+                    default: return "\uE8A6";                     // 顺序
+                }
+            }
+        }
+
+        public string PlayModeText
+        {
+            get
+            {
+                switch (_playback.Mode)
+                {
+                    case PlaybackMode.Shuffle: return "随机";
+                    case PlaybackMode.RepeatAll: return "列表循环";
+                    case PlaybackMode.RepeatOne: return "单曲循环";
+                    case PlaybackMode.PlayOnce: return "只播放本曲";
+                    default: return "顺序";
+                }
+            }
+        }
 
         public string CurrentTimeText => FormatTime(_playback.Position);
 

@@ -4,8 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    mc:Ignorable="d"
-    RequestedTheme="Light">
+    mc:Ignorable="d">
 
     <Grid Background="{StaticResource PageBackgroundBrush}">
         <Grid.RowDefinitions>
@@ -35,7 +34,7 @@
                            Foreground="{StaticResource TextPrimaryBrush}"/>
                 <Border Background="{StaticResource SurfaceBrush}" Padding="20" Margin="0,10,0,28">
                     <StackPanel>
-                        <TextBlock Text="应用会扫描系统的音乐、视频和图片库；也可以通过「添加媒体文件」选择任意位置的媒体。已选择的文件会被记住，下次启动自动恢复。"
+                        <TextBlock Text="应用会扫描系统的音乐、视频和图片库及其所有子文件夹；也可以「添加媒体文件」或「导入文件夹」。已选择的文件与文件夹会被记住，下次启动自动恢复。"
                                    FontSize="14" TextWrapping="Wrap"
                                    Foreground="{StaticResource TextSecondaryBrush}"/>
                         <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
@@ -45,6 +44,9 @@
                             <Button Content="添加媒体文件" Margin="12,0,0,0" Padding="16,6"
                                     Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
                                     BorderThickness="1" Command="{Binding AddFilesCommand}"/>
+                            <Button Content="导入文件夹（含子文件夹）" Margin="12,0,0,0" Padding="16,6"
+                                    Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
+                                    BorderThickness="1" Command="{Binding AddFolderCommand}"/>
                         </StackPanel>
                         <TextBlock Text="{Binding StatusMessage}" FontSize="12" Margin="0,12,0,0"
                                    Foreground="{StaticResource TextSecondaryBrush}"/>
@@ -71,6 +73,54 @@
                 <Border Background="{StaticResource SurfaceBrush}" Padding="20" Margin="0,10,0,28">
                     <TextBlock Text="{Binding StatsText}" FontSize="14" TextWrapping="Wrap"
                                Foreground="{StaticResource TextPrimaryBrush}"/>
+                </Border>
+
+                <!-- 外观 -->
+                <TextBlock Text="外观" FontSize="18" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}"/>
+                <Border Background="{StaticResource SurfaceBrush}" Padding="20" Margin="0,10,0,28">
+                    <StackPanel>
+                        <TextBlock Text="主题" FontSize="14"
+                                   Foreground="{StaticResource TextSecondaryBrush}"/>
+                        <ComboBox x:Name="ThemeCombo" Width="200" Margin="0,8,0,0"
+                                  SelectionChanged="ThemeCombo_SelectionChanged"
+                                  AutomationProperties.Name="主题">
+                            <ComboBoxItem Content="跟随系统" Tag="System"/>
+                            <ComboBoxItem Content="浅色" Tag="Light"/>
+                            <ComboBoxItem Content="深色" Tag="Dark"/>
+                        </ComboBox>
+
+                        <TextBlock Text="强调色" FontSize="14" Margin="0,18,0,0"
+                                   Foreground="{StaticResource TextSecondaryBrush}"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                            <Button Content="系统默认" Padding="12,6" Margin="0,0,8,0"
+                                    Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
+                                    BorderThickness="1" Click="AccentDefault_Click"/>
+                            <Button Width="36" Height="36" Margin="0,0,8,0" Padding="0"
+                                    Background="#FF0089D0" BorderThickness="2" Tag="FF0089D0"
+                                    Click="Accent_Click" AutomationProperties.Name="蓝色"/>
+                            <Button Width="36" Height="36" Margin="0,0,8,0" Padding="0"
+                                    Background="#FF00A3B4" BorderThickness="2" Tag="FF00A3B4"
+                                    Click="Accent_Click" AutomationProperties.Name="青色"/>
+                            <Button Width="36" Height="36" Margin="0,0,8,0" Padding="0"
+                                    Background="#FF7B4FBF" BorderThickness="2" Tag="FF7B4FBF"
+                                    Click="Accent_Click" AutomationProperties.Name="紫色"/>
+                            <Button Width="36" Height="36" Margin="0,0,8,0" Padding="0"
+                                    Background="#FFE81123" BorderThickness="2" Tag="FFE81123"
+                                    Click="Accent_Click" AutomationProperties.Name="红色"/>
+                            <Button Width="36" Height="36" Padding="0"
+                                    Background="#FF107C10" BorderThickness="2" Tag="FF107C10"
+                                    Click="Accent_Click" AutomationProperties.Name="绿色"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- 兼容性 -->
+                <TextBlock Text="兼容性" FontSize="18" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}"/>
+                <Border Background="{StaticResource SurfaceBrush}" Padding="20" Margin="0,10,0,28">
+                    <TextBlock x:Name="CompatibilityText" FontSize="13" TextWrapping="Wrap"
+                               Foreground="{StaticResource TextSecondaryBrush}"/>
                 </Border>
 
                 <!-- 关于 -->

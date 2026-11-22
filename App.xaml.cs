@@ -52,6 +52,9 @@ namespace HyperMedia_Lite
 
                 // 将框架放在当前窗口中
                 Window.Current.Content = rootFrame;
+
+                // 应用主题与强调色（默认跟随系统）
+                ThemeService.Load();
             }
 
             if (e.PrelaunchActivated == false)

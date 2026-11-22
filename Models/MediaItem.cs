@@ -31,6 +31,7 @@ namespace HyperMedia_Lite.Models
         private string _title;
         private string _subtitle;
         private string _album = string.Empty;
+        private uint _pixelWidth;
 
         public StorageFile File { get; }
 
@@ -59,6 +60,12 @@ namespace HyperMedia_Lite.Models
         {
             get => _album;
             private set => SetProperty(ref _album, value);
+        }
+
+        public uint PixelWidth
+        {
+            get => _pixelWidth;
+            private set => SetProperty(ref _pixelWidth, value);
         }
 
         public TimeSpan Duration
@@ -157,6 +164,7 @@ namespace HyperMedia_Lite.Models
                     {
                         Title = p.Title;
                     }
+                    PixelWidth = p.Width;
                     Subtitle = p.Width > 0 && p.Height > 0
                         ? $"{p.Width} × {p.Height}"
                         : File.FileType.TrimStart('.').ToUpperInvariant() + " 图片";
@@ -202,6 +210,13 @@ namespace HyperMedia_Lite.Models
         {
             var stream = await File.OpenAsync(FileAccessMode.Read);
             var image = new BitmapImage();
+            // 超大图降采样到 4K 宽，避免解码占用过多内存；GIF 保持原尺寸以保留动画。
+            bool isGif = string.Equals(File.FileType, ".gif", StringComparison.OrdinalIgnoreCase);
+            if (!isGif && PixelWidth > 4096)
+            {
+                image.DecodePixelWidth = 4096;
+                image.DecodePixelType = DecodePixelType.Logical;
+            }
             await image.SetSourceAsync(stream);
             return image;
         }

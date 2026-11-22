@@ -14,6 +14,54 @@
         <SolidColorBrush x:Key="PageBackgroundBrush" Color="#FFF1F1F1"/>
         <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FF1A1A1A"/>
         <SolidColorBrush x:Key="TextSecondaryBrush" Color="#FF767676"/>
+
+        <Style x:Key="EditorIconButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid x:Name="RootGrid" Background="Transparent">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal"/>
+                                    <VisualState x:Name="PointerOver">
+                                        <VisualState.Setters>
+                                            <Setter Target="RootGrid.Background" Value="#33FFFFFF"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Pressed">
+                                        <VisualState.Setters>
+                                            <Setter Target="RootGrid.Background" Value="#55FFFFFF"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Disabled">
+                                        <VisualState.Setters>
+                                            <Setter Target="RootGrid.Opacity" Value="0.4"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!-- 滑块颜色（由 ThemeService 根据强调色明暗动态调整） -->
+        <SolidColorBrush x:Key="SliderFillBrush" Color="#99000000"/>
+        <SolidColorBrush x:Key="SliderTrackBrush" Color="#66FFFFFF"/>
+        <SolidColorBrush x:Key="SliderThumbBrush" Color="#FFFFFFFF"/>
+        <SolidColorBrush x:Key="SliderThumbBackground" Color="#FFFFFFFF"/>
+        <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#FFFFFFFF"/>
+        <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="#FFFFFFFF"/>
+        <SolidColorBrush x:Key="SliderThumbBorderBrush" Color="#FF1A1A1A"/>
+        <!-- 全屏播放页（深色背景）专用 -->
+        <SolidColorBrush x:Key="OverlaySliderFillBrush" Color="#CCFFFFFF"/>
+        <SolidColorBrush x:Key="OverlaySliderTrackBrush" Color="#55FFFFFF"/>
+        <SolidColorBrush x:Key="OverlaySliderThumbBrush" Color="#FFFFFFFF"/>
     </Application.Resources>
 
 </Application>

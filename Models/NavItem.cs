@@ -45,5 +45,10 @@ namespace HyperMedia_Lite.Models
             Glyph = glyph;
             Label = label;
         }
+
+        public void RefreshSelection()
+        {
+            OnPropertyChanged(nameof(IsSelected));
+        }
     }
 }

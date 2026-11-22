@@ -1,11 +1,16 @@
-﻿using HyperMedia_Lite.Models;
+﻿using HyperMedia_Lite.Helpers;
+using HyperMedia_Lite.Models;
 using HyperMedia_Lite.Services;
 using HyperMedia_Lite.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Windows.Media.Playback;
+using Windows.System;
+using Windows.UI.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Controls.Primitives;
 using Windows.UI.Xaml.Input;
 using Windows.UI.Xaml.Navigation;
 
@@ -21,6 +26,18 @@ namespace HyperMedia_Lite
 
         private List<MediaItem> _photoItems = new List<MediaItem>();
         private int _photoIndex = -1;
+        private double _photoRotation;
+        private int _flipH = 1;
+        private int _flipV = 1;
+        private bool _updatingZoomSlider;
+        private bool _infoOpen;
+        private bool _slideRunning;
+        private double _slideElapsed;
+        private int _photoLoadId;
+        private DispatcherTimer _slideTimer;
+        private MediaPlayerElement _videoElement;
+        private MediaElement _legacyVideoElement;
+        private MediaItem _externalVideoItem;
 
         public MainPage()
         {
@@ -29,11 +46,12 @@ namespace HyperMedia_Lite
             _viewModel = App.MainViewModel;
             DataContext = _viewModel;
 
-            // 视频画面由同一个 MediaPlayer 渲染，音频播放时该元素自动隐藏。
-            VideoSurface.SetMediaPlayer(_playback.Player);
+            // 14393+：动态创建 MediaPlayerElement 并绑定同一个 MediaPlayer；10240 上不存在该类型。
+            SetupVideoSurface();
 
             _viewModel.PhotoRequested += OnPhotoRequested;
             _viewModel.PlayerRequested += OnPlayerRequested;
+            Window.Current.CoreWindow.KeyDown += CoreWindow_KeyDown;
 
             Loaded += MainPage_Loaded;
         }
@@ -49,6 +67,7 @@ namespace HyperMedia_Lite
             // 视图模型是全局共享的，离开页面时解除订阅，避免返回后重复注册。
             _viewModel.PhotoRequested -= OnPhotoRequested;
             _viewModel.PlayerRequested -= OnPlayerRequested;
+            Window.Current.CoreWindow.KeyDown -= CoreWindow_KeyDown;
             base.OnNavigatedFrom(e);
         }
 
@@ -131,6 +150,21 @@ namespace HyperMedia_Lite
             }
         }
 
+        private void SetSortTitle_Click(object sender, RoutedEventArgs e)
+        {
+            _viewModel.SortIndex = 0;
+        }
+
+        private void SetSortDate_Click(object sender, RoutedEventArgs e)
+        {
+            _viewModel.SortIndex = 1;
+        }
+
+        private void SetSortDuration_Click(object sender, RoutedEventArgs e)
+        {
+            _viewModel.SortIndex = 2;
+        }
+
         private void AlbumGrid_ItemClick(object sender, ItemClickEventArgs e)
         {
             _ = _viewModel.OpenAlbumAsync(e.ClickedItem as AlbumCard);
@@ -174,12 +208,98 @@ namespace HyperMedia_Lite
 
         #region 播放界面
 
+        private void SetupVideoSurface()
+        {
+            if (!UwpCompat.HasMediaPlayerElement)
+            {
+                // 10240：用经典 MediaElement 作为视频后端，仍可应用内播放。
+                try
+                {
+                    _legacyVideoElement = new MediaElement
+                    {
+                        Stretch = Windows.UI.Xaml.Media.Stretch.Uniform,
+                        HorizontalAlignment = HorizontalAlignment.Stretch,
+                        VerticalAlignment = VerticalAlignment.Stretch
+                    };
+                    VideoHost.Children.Add(_legacyVideoElement);
+                    _playback.VideoBackend = new MediaElementVideoBackend(_legacyVideoElement);
+                    return;
+                }
+                catch (Exception)
+                {
+                    _legacyVideoElement = null;
+                }
+
+                // 兜底：MediaElement 不可用时，交系统播放器。
+                var panel = new StackPanel
+                {
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                panel.Children.Add(new TextBlock
+                {
+                    Text = "当前系统无法在应用内播放视频",
+                    FontSize = 16,
+                    Foreground = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Colors.White),
+                    HorizontalAlignment = HorizontalAlignment.Center
+                });
+                var openButton = new Button
+                {
+                    Content = "用系统播放器打开",
+                    Margin = new Thickness(0, 16, 0, 0),
+                    HorizontalAlignment = HorizontalAlignment.Center
+                };
+                openButton.Click += (s, e) =>
+                {
+                    if (_externalVideoItem != null)
+                    {
+                        _ = Launcher.LaunchFileAsync(_externalVideoItem.File);
+                    }
+                };
+                panel.Children.Add(openButton);
+                VideoHost.Children.Add(panel);
+                return;
+            }
+
+            _videoElement = new MediaPlayerElement
+            {
+                AreTransportControlsEnabled = false,
+                Stretch = Windows.UI.Xaml.Media.Stretch.Uniform,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Stretch
+            };
+            _videoElement.SetMediaPlayer(_playback.Player);
+            VideoHost.Children.Add(_videoElement);
+        }
+
         private void OnPlayerRequested(object sender, MediaItem item)
         {
             bool isVideo = item != null && item.Kind == MediaKind.Video;
-            VideoSurface.Visibility = isVideo ? Visibility.Visible : Visibility.Collapsed;
+
+            if (isVideo && !UwpCompat.HasMediaPlayerElement && _playback.VideoBackend == null)
+            {
+                // 极端兜底：MediaElement 也不可用时才交系统播放器。
+                _externalVideoItem = item;
+                _ = Launcher.LaunchFileAsync(item.File);
+                return;
+            }
+
+            if (_videoElement != null)
+            {
+                _videoElement.Visibility = isVideo ? Visibility.Visible : Visibility.Collapsed;
+            }
+            if (_legacyVideoElement != null)
+            {
+                _legacyVideoElement.Visibility = isVideo ? Visibility.Visible : Visibility.Collapsed;
+            }
             AudioPanel.Visibility = isVideo ? Visibility.Collapsed : Visibility.Visible;
             PlayerOverlay.Visibility = Visibility.Visible;
+        }
+
+        private void OpenPlayer_Click(object sender, RoutedEventArgs e)
+        {
+            // 点击迷你播放器的封面直接展开播放页面。
+            OnPlayerRequested(this, _playback.CurrentItem);
         }
 
         private void ClosePlayer_Click(object sender, RoutedEventArgs e)
@@ -196,6 +316,11 @@ namespace HyperMedia_Lite
             _photoItems = _viewModel.CurrentItems.Where(i => i.Kind == MediaKind.Photo).ToList();
             _photoIndex = _photoItems.IndexOf(item);
             PhotoOverlay.Visibility = Visibility.Visible;
+            Filmstrip.ItemsSource = _photoItems;
+            if (_photoIndex >= 0 && _photoIndex < _photoItems.Count)
+            {
+                Filmstrip.ScrollIntoView(_photoItems[_photoIndex]);
+            }
             _ = ShowPhotoAsync();
         }
 
@@ -206,16 +331,193 @@ namespace HyperMedia_Lite
                 return;
             }
 
+            int loadId = ++_photoLoadId;
             var item = _photoItems[_photoIndex];
             PhotoTitle.Text = item.Title;
-            try
+            PhotoCounter.Text = $"{_photoIndex + 1} / {_photoItems.Count}";
+            _photoRotation = 0;
+            _flipH = 1;
+            _flipV = 1;
+            PhotoViewer.ImageRotation = 0;
+            PhotoViewer.FlipH = 1;
+            PhotoViewer.FlipV = 1;
+            PhotoFailedPanel.Visibility = Visibility.Collapsed;
+            PhotoLoadingRing.IsActive = true;
+            PhotoLoadingRing.Visibility = Visibility.Visible;
+
+            // 先用系统缩略图作为占位，高清解码完成后替换，避免空白等待。
+            PhotoViewer.IsPlaceholder = item.Thumbnail != null;
+            PhotoViewer.Source = item.Thumbnail;
+
+            var fullImage = await ImageLoaderService.LoadAsync(item);
+            if (loadId != _photoLoadId)
             {
-                PhotoImage.Source = await item.LoadFullImageAsync();
+                return;
             }
-            catch (Exception)
+
+            PhotoLoadingRing.IsActive = false;
+            PhotoLoadingRing.Visibility = Visibility.Collapsed;
+
+            if (fullImage == null)
             {
-                PhotoImage.Source = null;
-                PhotoTitle.Text = item.Title + "（无法打开此图片）";
+                PhotoFailedPanel.Visibility = Visibility.Visible;
+                return;
+            }
+
+            PhotoViewer.IsPlaceholder = false;
+            PhotoViewer.Source = fullImage;
+            PhotoViewer.ResetView();
+            SyncZoomSlider();
+            await LoadPhotoInfoAsync(item, loadId);
+        }
+
+        private async System.Threading.Tasks.Task LoadPhotoInfoAsync(MediaItem item, int loadId)
+        {
+            var info = await ImageInfoService.LoadAsync(item);
+            if (loadId != _photoLoadId || info == null)
+            {
+                return;
+            }
+            InfoList.ItemsSource = info.BuildRows();
+        }
+
+        private void PhotoRetry_Click(object sender, RoutedEventArgs e)
+        {
+            _ = ShowPhotoAsync();
+        }
+
+        private void PhotoViewer_ZoomFactorChanged(object sender, EventArgs e)
+        {
+            SyncZoomSlider();
+        }
+
+        private void SyncZoomSlider()
+        {
+            _updatingZoomSlider = true;
+            ZoomSlider.Value = Math.Max(ZoomSlider.Minimum,
+                Math.Min(ZoomSlider.Maximum, PhotoViewer.CurrentZoomFactor * 100));
+            _updatingZoomSlider = false;
+        }
+
+        private void ZoomSlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
+        {
+            if (!_updatingZoomSlider && PhotoOverlay.Visibility == Visibility.Visible)
+            {
+                PhotoViewer.SetZoomFactor((float)(e.NewValue / 100.0));
+            }
+        }
+
+        private void Fit_Click(object sender, RoutedEventArgs e)
+        {
+            PhotoViewer.ResetView();
+            SyncZoomSlider();
+        }
+
+        private void Rotate_Click(object sender, RoutedEventArgs e)
+        {
+            _photoRotation = (_photoRotation + 90) % 360;
+            PhotoViewer.ImageRotation = _photoRotation;
+            PhotoViewer.ResetView();
+        }
+
+        private void RotateBack_Click(object sender, RoutedEventArgs e)
+        {
+            _photoRotation = (_photoRotation - 90 + 360) % 360;
+            PhotoViewer.ImageRotation = _photoRotation;
+            PhotoViewer.ResetView();
+        }
+
+        private void FlipH_Click(object sender, RoutedEventArgs e)
+        {
+            _flipH = -_flipH;
+            PhotoViewer.FlipH = _flipH;
+            PhotoViewer.ResetView();
+        }
+
+        private void FlipV_Click(object sender, RoutedEventArgs e)
+        {
+            _flipV = -_flipV;
+            PhotoViewer.FlipV = _flipV;
+            PhotoViewer.ResetView();
+        }
+
+        private void Edit_Click(object sender, RoutedEventArgs e)
+        {
+            if (_photoIndex < 0 || _photoIndex >= _photoItems.Count)
+            {
+                return;
+            }
+            StopSlideShow();
+            Frame.Navigate(typeof(EditPage), _photoItems[_photoIndex]);
+        }
+
+        private void Info_Click(object sender, RoutedEventArgs e)
+        {
+            _infoOpen = !_infoOpen;
+            InfoPanel.Visibility = _infoOpen ? Visibility.Visible : Visibility.Collapsed;
+            double panelWidth = Math.Min(300, Math.Max(180, Window.Current.Bounds.Width - 260));
+            InfoColumn.Width = new GridLength(_infoOpen ? panelWidth : 0);
+            PhotoViewer.ResetView();
+        }
+
+        private void PhotoViewer_DoubleTappedOccurred(object sender, EventArgs e)
+        {
+            // 双击交由控件处理缩放，这里仅同步滑条（缩放事件已在控件内触发）。
+            SyncZoomSlider();
+        }
+
+        private void Filmstrip_ItemClick(object sender, ItemClickEventArgs e)
+        {
+            int index = _photoItems.IndexOf(e.ClickedItem as MediaItem);
+            if (index < 0 || index == _photoIndex)
+            {
+                return;
+            }
+            _photoIndex = index;
+            _ = ShowPhotoAsync();
+        }
+
+        private void SlideShow_Click(object sender, RoutedEventArgs e)
+        {
+            if (_slideRunning)
+            {
+                StopSlideShow();
+            }
+            else
+            {
+                StartSlideShow();
+            }
+        }
+
+        private void StartSlideShow()
+        {
+            _slideRunning = true;
+            _slideElapsed = 0;
+            SlideProgressHost.Visibility = Visibility.Visible;
+            SlideProgress.Value = 0;
+
+            _slideTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
+            _slideTimer.Tick += SlideTimer_Tick;
+            _slideTimer.Start();
+        }
+
+        private void StopSlideShow()
+        {
+            _slideRunning = false;
+            _slideTimer?.Stop();
+            _slideTimer = null;
+            SlideProgressHost.Visibility = Visibility.Collapsed;
+        }
+
+        private void SlideTimer_Tick(object sender, object e)
+        {
+            _slideElapsed += 0.05;
+            double seconds = PhotoViewerSettings.SlideShowSeconds;
+            SlideProgress.Value = Math.Min(1, _slideElapsed / seconds);
+            if (_slideElapsed >= seconds && _photoItems.Count > 0)
+            {
+                _slideElapsed = 0;
+                PhotoNext_Click(this, new RoutedEventArgs());
             }
         }
 
@@ -241,7 +543,60 @@ namespace HyperMedia_Lite
 
         private void ClosePhoto_Click(object sender, RoutedEventArgs e)
         {
+            StopSlideShow();
             PhotoOverlay.Visibility = Visibility.Collapsed;
+        }
+
+        private void CoreWindow_KeyDown(CoreWindow sender, KeyEventArgs args)
+        {
+            if (PhotoOverlay.Visibility != Visibility.Visible)
+            {
+                return;
+            }
+
+            switch (args.VirtualKey)
+            {
+                case VirtualKey.Escape:
+                    ClosePhoto_Click(this, new RoutedEventArgs());
+                    args.Handled = true;
+                    break;
+                case VirtualKey.Left:
+                    PhotoPrevious_Click(this, new RoutedEventArgs());
+                    args.Handled = true;
+                    break;
+                case VirtualKey.Right:
+                    PhotoNext_Click(this, new RoutedEventArgs());
+                    args.Handled = true;
+                    break;
+                case VirtualKey.Number0:
+                    Fit_Click(this, new RoutedEventArgs());
+                    args.Handled = true;
+                    break;
+                case VirtualKey.Add:
+                    PhotoViewer.SetZoomFactor(PhotoViewer.CurrentZoomFactor * 1.25f);
+                    args.Handled = true;
+                    break;
+                case VirtualKey.Subtract:
+                    PhotoViewer.SetZoomFactor(PhotoViewer.CurrentZoomFactor / 1.25f);
+                    args.Handled = true;
+                    break;
+                case VirtualKey.R:
+                    Rotate_Click(this, new RoutedEventArgs());
+                    args.Handled = true;
+                    break;
+                case VirtualKey.F:
+                    Fit_Click(this, new RoutedEventArgs());
+                    args.Handled = true;
+                    break;
+                case VirtualKey.I:
+                    Info_Click(this, new RoutedEventArgs());
+                    args.Handled = true;
+                    break;
+                case VirtualKey.Space:
+                    SlideShow_Click(this, new RoutedEventArgs());
+                    args.Handled = true;
+                    break;
+            }
         }
 
         #endregion

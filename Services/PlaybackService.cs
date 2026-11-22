@@ -1,12 +1,27 @@
+using HyperMedia_Lite.Helpers;
 using HyperMedia_Lite.Models;
 using System;
+using Windows.ApplicationModel.Core;
+using Windows.Storage;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Windows.Media.Core;
 using Windows.Media.Playback;
+using Windows.UI.Core;
+using Windows.UI.Xaml;
 
 namespace HyperMedia_Lite.Services
 {
+    /// <summary>播放顺序模式。</summary>
+    public enum PlaybackMode
+    {
+        Sequential,   // 顺序播放
+        Shuffle,      // 随机播放
+        RepeatAll,    // 列表循环
+        RepeatOne,    // 单曲循环
+        PlayOnce      // 只播放本曲
+    }
+
     /// <summary>
     /// 应用内唯一的播放核心：封装 MediaPlayer，维护播放队列与传输控制状态。
     /// 同一个 MediaPlayer 实例会被 MainPage 上的 MediaPlayerElement 绑定，用于显示视频画面。
@@ -18,10 +33,38 @@ namespace HyperMedia_Lite.Services
 
         private readonly MediaPlayer _player = new MediaPlayer();
         private readonly Random _random = new Random();
+        private readonly CoreDispatcher _dispatcher;
+        private readonly bool _useLegacyPlayback = !UwpCompat.HasModernPlayback;
+        private readonly DispatcherTimer _positionTimer;
 
         public static PlaybackService Current => LazyInstance.Value;
 
         public MediaPlayer Player => _player;
+
+        /// <summary>10240 上的视频后端（MediaElement）。14393+ 保持为 null。</summary>
+        private IVideoBackend _videoBackend;
+        public IVideoBackend VideoBackend
+        {
+            get => _videoBackend;
+            set
+            {
+                if (_videoBackend != null)
+                {
+                    _videoBackend.StateChanged -= OnBackendStateChanged;
+                    _videoBackend.MediaEnded -= OnBackendMediaEnded;
+                }
+                _videoBackend = value;
+                if (_videoBackend != null)
+                {
+                    _videoBackend.StateChanged += OnBackendStateChanged;
+                    _videoBackend.MediaEnded += OnBackendMediaEnded;
+                }
+                RaiseStateChanged();
+            }
+        }
+
+        private bool UseVideoBackend =>
+            _useLegacyPlayback && _videoBackend != null && CurrentItem?.Kind == MediaKind.Video;
 
         public ObservableCollection<MediaItem> Queue { get; } = new ObservableCollection<MediaItem>();
 
@@ -30,15 +73,31 @@ namespace HyperMedia_Lite.Services
         public MediaItem CurrentItem =>
             CurrentIndex >= 0 && CurrentIndex < Queue.Count ? Queue[CurrentIndex] : null;
 
-        public bool IsShuffle { get; private set; }
+        private const string ModeKey = "PlaybackMode";
 
-        public bool IsRepeat { get; private set; }
+        public PlaybackMode Mode { get; private set; } = PlaybackMode.Sequential;
 
-        public bool IsPlaying => _player.PlaybackSession.PlaybackState == MediaPlaybackState.Playing;
+        public bool IsShuffle => Mode == PlaybackMode.Shuffle;
 
-        public TimeSpan Position => _player.PlaybackSession.Position;
+        public bool IsRepeat => Mode == PlaybackMode.RepeatAll || Mode == PlaybackMode.RepeatOne;
 
-        public TimeSpan Duration => _player.PlaybackSession.NaturalDuration;
+        public bool IsPlaying => UseVideoBackend
+            ? _videoBackend.IsPlaying
+            : _useLegacyPlayback
+                ? _player.CurrentState == MediaPlaybackState.Playing
+                : _player.PlaybackSession.PlaybackState == MediaPlaybackState.Playing;
+
+        public TimeSpan Position => UseVideoBackend
+            ? _videoBackend.Position
+            : _useLegacyPlayback
+                ? _player.Position
+                : _player.PlaybackSession.Position;
+
+        public TimeSpan Duration => UseVideoBackend
+            ? _videoBackend.Duration
+            : _useLegacyPlayback
+                ? _player.NaturalDuration
+                : _player.PlaybackSession.NaturalDuration;
 
         /// <summary>播放状态 / 进度发生变化。</summary>
         public event EventHandler StateChanged;
@@ -48,27 +107,108 @@ namespace HyperMedia_Lite.Services
 
         private PlaybackService()
         {
+            // MediaPlayer 的事件可能来自 MTA 线程，UI 绑定更新必须切回 UI 线程。
+            _dispatcher = Window.Current?.CoreWindow?.Dispatcher
+                ?? CoreApplication.MainView.CoreWindow.Dispatcher;
+
             _player.AutoPlay = false;
 
-            var session = _player.PlaybackSession;
-            session.PlaybackStateChanged += (sender, args) => StateChanged?.Invoke(this, EventArgs.Empty);
-            session.PositionChanged += (sender, args) => StateChanged?.Invoke(this, EventArgs.Empty);
-            session.NaturalDurationChanged += (sender, args) => StateChanged?.Invoke(this, EventArgs.Empty);
-
-            _player.MediaOpened += (sender, args) => StateChanged?.Invoke(this, EventArgs.Empty);
-            _player.MediaFailed += (sender, args) => StateChanged?.Invoke(this, EventArgs.Empty);
-            _player.MediaEnded += (sender, args) =>
+            if (ApplicationData.Current.LocalSettings.Values.TryGetValue(ModeKey, out object rawMode)
+                && rawMode is string modeText && Enum.TryParse(modeText, out PlaybackMode savedMode))
             {
-                if (IsRepeat)
+                Mode = savedMode;
+            }
+
+            if (_useLegacyPlayback)
+            {
+                // 10240：PlaybackSession 不存在，使用 MediaPlayer 旧 API + 定时器轮询进度。
+                _player.CurrentStateChanged += (sender, args) => RaiseStateChanged();
+                _player.SeekCompleted += (sender, args) => RaiseStateChanged();
+                _positionTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
+                _positionTimer.Tick += (sender, args) =>
                 {
+                    if (IsPlaying)
+                    {
+                        RaiseStateChanged();
+                    }
+                };
+                _positionTimer.Start();
+            }
+            else
+            {
+                var session = _player.PlaybackSession;
+                session.PlaybackStateChanged += (sender, args) => RaiseStateChanged();
+                session.PositionChanged += (sender, args) => RaiseStateChanged();
+                session.NaturalDurationChanged += (sender, args) => RaiseStateChanged();
+            }
+
+            _player.MediaOpened += (sender, args) => RaiseStateChanged();
+            _player.MediaFailed += (sender, args) => RaiseStateChanged();
+            _player.MediaEnded += (sender, args) => HandleMediaEnded();
+        }
+
+        private void OnBackendStateChanged(object sender, EventArgs e) => RaiseStateChanged();
+
+        private void OnBackendMediaEnded(object sender, EventArgs e) => HandleMediaEnded();
+
+        private void HandleMediaEnded()
+        {
+            switch (Mode)
+            {
+                case PlaybackMode.RepeatOne:
                     Seek(0);
-                    _player.Play();
-                }
-                else
-                {
+                    PlayCurrent();
+                    break;
+                case PlaybackMode.PlayOnce:
+                    PauseCurrent();
+                    Seek(0);
+                    break;
+                case PlaybackMode.Shuffle:
+                case PlaybackMode.RepeatAll:
                     Next();
-                }
-            };
+                    break;
+                default:
+                    if (CurrentIndex + 1 < Queue.Count)
+                    {
+                        Next();
+                    }
+                    else
+                    {
+                        PauseCurrent();
+                        Seek(0);
+                    }
+                    break;
+            }
+        }
+
+        private void PlayCurrent()
+        {
+            if (UseVideoBackend) _videoBackend.Play(); else _player.Play();
+        }
+
+        private void PauseCurrent()
+        {
+            if (UseVideoBackend) _videoBackend.Pause(); else _player.Pause();
+        }
+
+        private void DispatchToUIThread(Action action)
+        {
+            if (_dispatcher == null || _dispatcher.HasThreadAccess)
+            {
+                action();
+                return;
+            }
+            _ = _dispatcher.RunAsync(CoreDispatcherPriority.Normal, () => action());
+        }
+
+        private void RaiseStateChanged()
+        {
+            DispatchToUIThread(() => StateChanged?.Invoke(this, EventArgs.Empty));
+        }
+
+        private void RaiseItemChanged()
+        {
+            DispatchToUIThread(() => ItemChanged?.Invoke(this, EventArgs.Empty));
         }
 
         /// <summary>
@@ -102,27 +242,39 @@ namespace HyperMedia_Lite.Services
 
             try
             {
-                _player.Source = MediaSource.CreateFromStorageFile(item.File);
-                _player.Play();
+                if (_useLegacyPlayback && _videoBackend != null && item.Kind == MediaKind.Video)
+                {
+                    // 10240：视频走 MediaElement 后端，应用内播放。
+                    await _videoBackend.PlayAsync(item.File);
+                }
+                else
+                {
+                    _player.Source = MediaSource.CreateFromStorageFile(item.File);
+                    _player.Play();
+                }
             }
             catch (Exception)
             {
                 // 格式不支持或文件不可访问时保留队列，由界面显示当前曲目信息。
             }
 
-            ItemChanged?.Invoke(this, EventArgs.Empty);
-            StateChanged?.Invoke(this, EventArgs.Empty);
+            RaiseItemChanged();
+            RaiseStateChanged();
         }
 
         public void TogglePlayPause()
         {
             if (IsPlaying)
             {
-                _player.Pause();
+                PauseCurrent();
             }
             else if (Queue.Count > 0)
             {
-                if (_player.Source == null)
+                if (UseVideoBackend)
+                {
+                    _videoBackend.Play();
+                }
+                else if (_player.Source == null)
                 {
                     _ = LoadCurrentAsync();
                 }
@@ -137,7 +289,7 @@ namespace HyperMedia_Lite.Services
         {
             if (IsPlaying)
             {
-                _player.Pause();
+                PauseCurrent();
             }
         }
 
@@ -172,47 +324,67 @@ namespace HyperMedia_Lite.Services
 
         public void Seek(double seconds)
         {
-            var session = _player.PlaybackSession;
-            if (session.CanSeek && seconds >= 0)
+            if (seconds < 0)
             {
-                session.Position = TimeSpan.FromSeconds(seconds);
+                return;
+            }
+
+            if (UseVideoBackend)
+            {
+                _videoBackend.Seek(TimeSpan.FromSeconds(seconds));
+            }
+            else if (_useLegacyPlayback)
+            {
+                if (_player.CanSeek)
+                {
+                    _player.Position = TimeSpan.FromSeconds(seconds);
+                }
+            }
+            else
+            {
+                var session = _player.PlaybackSession;
+                if (session.CanSeek)
+                {
+                    session.Position = TimeSpan.FromSeconds(seconds);
+                }
             }
         }
 
         public void SetVolume(double percent)
         {
-            _player.Volume = Math.Max(0, Math.Min(100, percent)) / 100.0;
+            double volume = Math.Max(0, Math.Min(100, percent)) / 100.0;
+            _player.Volume = volume;
+            if (_videoBackend != null)
+            {
+                _videoBackend.Volume = volume;
+            }
         }
 
-        public double VolumePercent => _player.Volume * 100.0;
+        public double VolumePercent => (UseVideoBackend ? _videoBackend.Volume : _player.Volume) * 100.0;
 
-        public void ToggleShuffle()
+        public void SetMode(PlaybackMode mode)
         {
-            IsShuffle = !IsShuffle;
-            StateChanged?.Invoke(this, EventArgs.Empty);
+            Mode = mode;
+            ApplicationData.Current.LocalSettings.Values[ModeKey] = mode.ToString();
+            RaiseStateChanged();
         }
 
-        public void ToggleShuffle(bool enabled)
+        /// <summary>按 顺序 → 随机 → 列表循环 → 单曲循环 → 只播放本曲 依次切换。</summary>
+        public void CycleMode()
         {
-            IsShuffle = enabled;
-            StateChanged?.Invoke(this, EventArgs.Empty);
-        }
-
-        public void ToggleRepeat()
-        {
-            IsRepeat = !IsRepeat;
-            StateChanged?.Invoke(this, EventArgs.Empty);
+            SetMode((PlaybackMode)(((int)Mode + 1) % Enum.GetValues(typeof(PlaybackMode)).Length));
         }
 
         public void Stop()
         {
             // MediaPlayer 没有 Stop：暂停并清空源即可停止播放。
+            _videoBackend?.Stop();
             _player.Pause();
             _player.Source = null;
             CurrentIndex = -1;
             Queue.Clear();
-            ItemChanged?.Invoke(this, EventArgs.Empty);
-            StateChanged?.Invoke(this, EventArgs.Empty);
+            RaiseItemChanged();
+            RaiseStateChanged();
         }
     }
 }
