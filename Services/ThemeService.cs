@@ -104,8 +104,17 @@ namespace HyperMedia_Lite.Services
             SetColor("SliderThumbBackgroundPointerOver", sliderThumb);
             SetColor("SliderThumbBackgroundPressed", sliderThumb);
             SetColor("SliderThumbBorderBrush", sliderBorder);
+            SetColor("SliderThumbBackgroundDisabled", sliderThumb);
             SetColor("SliderFillBrush", sliderFill);
             SetColor("SliderTrackBrush", sliderTrack);
+            SetColor("SliderTrackFill", sliderTrack);
+            SetColor("SliderTrackFillPointerOver", sliderTrack);
+            SetColor("SliderTrackFillPressed", sliderTrack);
+            SetColor("SliderTrackFillDisabled", sliderTrack);
+            SetColor("SliderTrackValueFill", sliderFill);
+            SetColor("SliderTrackValueFillPointerOver", sliderFill);
+            SetColor("SliderTrackValueFillPressed", sliderFill);
+            SetColor("SliderTrackValueFillDisabled", sliderFill);
 
             App.MainViewModel.RefreshTheme();
         }

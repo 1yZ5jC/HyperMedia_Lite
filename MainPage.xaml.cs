@@ -11,7 +11,11 @@ using Windows.UI.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Controls.Primitives;
+using Windows.UI.Xaml.Documents;
 using Windows.UI.Xaml.Input;
+using Windows.UI.Xaml.Media;
+using Windows.UI.Xaml.Media.Animation;
+using Windows.UI.ViewManagement;
 using Windows.UI.Xaml.Navigation;
 
 namespace HyperMedia_Lite
@@ -38,6 +42,7 @@ namespace HyperMedia_Lite
         private MediaPlayerElement _videoElement;
         private MediaElement _legacyVideoElement;
         private MediaItem _externalVideoItem;
+        private DispatcherTimer _videoIdleTimer;
 
         public MainPage()
         {
@@ -51,7 +56,9 @@ namespace HyperMedia_Lite
 
             _viewModel.PhotoRequested += OnPhotoRequested;
             _viewModel.PlayerRequested += OnPlayerRequested;
+            _viewModel.PropertyChanged += ViewModel_PropertyChanged;
             Window.Current.CoreWindow.KeyDown += CoreWindow_KeyDown;
+            Window.Current.SizeChanged += OnWindowSizeChanged;
 
             Loaded += MainPage_Loaded;
         }
@@ -79,7 +86,9 @@ namespace HyperMedia_Lite
             // 视图模型是全局共享的，离开页面时解除订阅，避免返回后重复注册。
             _viewModel.PhotoRequested -= OnPhotoRequested;
             _viewModel.PlayerRequested -= OnPlayerRequested;
+            _viewModel.PropertyChanged -= ViewModel_PropertyChanged;
             Window.Current.CoreWindow.KeyDown -= CoreWindow_KeyDown;
+            Window.Current.SizeChanged -= OnWindowSizeChanged;
             base.OnNavigatedFrom(e);
         }
 
@@ -306,6 +315,48 @@ namespace HyperMedia_Lite
             }
             AudioPanel.Visibility = isVideo ? Visibility.Collapsed : Visibility.Visible;
             PlayerOverlay.Visibility = Visibility.Visible;
+
+            if (isVideo)
+            {
+                ShowVideoBars();
+            }
+            else
+            {
+                _videoIdleTimer?.Stop();
+                VideoTopBar.Visibility = Visibility.Visible;
+                VideoBottomBar.Visibility = Visibility.Visible;
+            }
+        }
+
+        private void ShowVideoBars()
+        {
+            VideoTopBar.Visibility = Visibility.Visible;
+            VideoBottomBar.Visibility = Visibility.Visible;
+
+            if (_videoIdleTimer == null)
+            {
+                _videoIdleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+                _videoIdleTimer.Tick += (s, e) =>
+                {
+                    if (PlayerOverlay.Visibility == Visibility.Visible &&
+                        _playback.CurrentItem?.Kind == MediaKind.Video)
+                    {
+                        VideoTopBar.Visibility = Visibility.Collapsed;
+                        VideoBottomBar.Visibility = Visibility.Collapsed;
+                    }
+                    _videoIdleTimer?.Stop();
+                };
+            }
+            _videoIdleTimer.Stop();
+            _videoIdleTimer.Start();
+        }
+
+        private void PlayerOverlay_PointerMoved(object sender, PointerRoutedEventArgs e)
+        {
+            if (_playback.CurrentItem?.Kind == MediaKind.Video)
+            {
+                ShowVideoBars();
+            }
         }
 
         private void OpenPlayer_Click(object sender, RoutedEventArgs e)
@@ -314,9 +365,251 @@ namespace HyperMedia_Lite
             OnPlayerRequested(this, _playback.CurrentItem);
         }
 
+        private void Fullscreen_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var view = ApplicationView.GetForCurrentView();
+                if (view.IsFullScreenMode)
+                {
+                    view.ExitFullScreenMode();
+                }
+                else
+                {
+                    view.TryEnterFullScreenMode();
+                }
+            }
+            catch { }
+        }
+
         private void ClosePlayer_Click(object sender, RoutedEventArgs e)
         {
+            _videoIdleTimer?.Stop();
             PlayerOverlay.Visibility = Visibility.Collapsed;
+        }
+
+        private void ViewModel_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == "CurrentLyricText")
+            {
+                UpdateLyricHighlight();
+            }
+            else if (e.PropertyName == "PlaybackPosition")
+            {
+                UpdateWordHighlight();
+            }
+        }
+
+        private void OnWindowSizeChanged(object sender, Windows.UI.Core.WindowSizeChangedEventArgs e)
+        {
+            UpdateLyricHighlight();
+        }
+
+        private TextBlock ActiveLyricBlock =>
+            Window.Current.Bounds.Width < 641 ? NarrowCurrentLyric : CurrentLyricBlock;
+
+        private TextBlock[] ActiveLyricBlocks =>
+            Window.Current.Bounds.Width < 641
+                ? new[] { NarrowPrevLyric, NarrowCurrentLyric, NarrowNextLyric, NarrowNext2Lyric }
+                : new[] { PrevLyricBlock, CurrentLyricBlock, NextLyricBlock, Next2LyricBlock };
+
+        private void UpdateLyricHighlight()
+        {
+            try
+            {
+                bool narrow = Window.Current.Bounds.Width < 641;
+                double baseSize = narrow ? 18 : 22;
+                double activeSize = narrow ? 28 : 40;
+                var blocks = ActiveLyricBlocks;
+                Brush dim = new SolidColorBrush(Windows.UI.Color.FromArgb(0x77, 0xFF, 0xFF, 0xFF));
+
+                // 所有句子默认保持同样字号；只有播放到的当前句才放大。
+                foreach (var block in blocks)
+                {
+                    if (block == null) continue;
+                    block.FontSize = baseSize;
+                    block.FontWeight = Windows.UI.Text.FontWeights.Normal;
+                    block.Foreground = dim;
+                }
+
+                if (_viewModel.LyricIndex >= 0 && blocks[1] != null &&
+                    !string.IsNullOrEmpty(_viewModel.CurrentLyricText))
+                {
+                    var active = blocks[1];
+                    active.FontWeight = Windows.UI.Text.FontWeights.SemiBold;
+                    active.Foreground = new SolidColorBrush(Windows.UI.Colors.White);
+                    AnimateFontSize(active, baseSize, activeSize);
+                }
+
+                UpdateWordHighlight();
+                if (FullLyricPanel.Visibility == Visibility.Visible)
+                {
+                    ScrollFullLyricToCurrent();
+                }
+            }
+            catch { }
+        }
+
+        private void AnimateFontSize(TextBlock target, double from, double to)
+        {
+            try
+            {
+                var animation = new DoubleAnimation
+                {
+                    From = from,
+                    To = to,
+                    Duration = TimeSpan.FromMilliseconds(220)
+                };
+                Storyboard.SetTarget(animation, target);
+                Storyboard.SetTargetProperty(animation, "FontSize");
+                var storyboard = new Storyboard();
+                storyboard.Children.Add(animation);
+                storyboard.Begin();
+            }
+            catch
+            {
+                target.FontSize = to;
+            }
+        }
+
+        private int _wordStyledLine = -1;
+        private TextBlock _wordStyledTarget;
+
+        private void UpdateWordHighlight()
+        {
+            try
+            {
+                int index = _viewModel.LyricIndex;
+                var words = _viewModel.LyricWords;
+                var target = ActiveLyricBlock;
+                if (target == null) return;
+
+                // 布局切换时，先还原上一个目标上的逐字 Inlines。
+                if (_wordStyledTarget != null && !ReferenceEquals(_wordStyledTarget, target))
+                {
+                    _wordStyledTarget.Text = _viewModel.CurrentLyricText;
+                    _wordStyledTarget = null;
+                    _wordStyledLine = -1;
+                }
+
+                if (index < 0 || words == null || words.Count == 0 ||
+                    PlayerOverlay.Visibility != Visibility.Visible)
+                {
+                    if (_wordStyledLine != -1)
+                    {
+                        target.Text = _viewModel.CurrentLyricText;
+                        _wordStyledLine = -1;
+                        _wordStyledTarget = null;
+                    }
+                    return;
+                }
+
+                if (_wordStyledLine != index || target.Inlines.Count == 0)
+                {
+                    target.Inlines.Clear();
+                    foreach (var word in words)
+                        target.Inlines.Add(new Run { Text = word.Text });
+                    _wordStyledLine = index;
+                    _wordStyledTarget = target;
+                }
+
+                double position = _viewModel.PlaybackPosition;
+                Brush sung = new SolidColorBrush(Windows.UI.Colors.White);
+                Brush pending = new SolidColorBrush(Windows.UI.Color.FromArgb(0x73, 0xFF, 0xFF, 0xFF));
+                for (int i = 0; i < words.Count && i < target.Inlines.Count; i++)
+                {
+                    if (target.Inlines[i] is Run run)
+                        run.Foreground = position + 0.05 >= words[i].StartSeconds ? sung : pending;
+                }
+            }
+            catch { }
+        }
+
+        private void ToggleFullLyric_Click(object sender, RoutedEventArgs e)
+        {
+            FullLyricPanel.Visibility = FullLyricPanel.Visibility == Visibility.Visible
+                ? Visibility.Collapsed : Visibility.Visible;
+            if (FullLyricPanel.Visibility == Visibility.Visible)
+            {
+                ScrollFullLyricToCurrent();
+            }
+        }
+
+        private void CloseFullLyric_Click(object sender, RoutedEventArgs e)
+        {
+            FullLyricPanel.Visibility = Visibility.Collapsed;
+        }
+
+        private void FullLyric_ItemClick(object sender, ItemClickEventArgs e)
+        {
+            if (e.ClickedItem is LyricLine line)
+            {
+                _viewModel.SeekToLyricCommand.Execute(line);
+            }
+        }
+
+        private void ScrollFullLyricToCurrent()
+        {
+            try
+            {
+                int index = _viewModel.LyricIndex;
+                if (index >= 0 && index < FullLyricList.Items.Count)
+                {
+                    FullLyricList.ScrollIntoView(FullLyricList.Items[index]);
+                }
+            }
+            catch { }
+        }
+
+        private void Subtitle_Click(object sender, RoutedEventArgs e)
+        {
+            var menu = new MenuFlyout { Placement = FlyoutPlacementMode.Bottom };
+
+            var clear = new MenuFlyoutItem { Text = "关闭字幕" };
+            clear.Click += (s, args) => _viewModel.ClearSubtitleCommand.Execute(null);
+            menu.Items.Add(clear);
+
+            var tracks = _playback.GetEmbeddedSubtitleTracks();
+            if (tracks.Count > 0)
+            {
+                menu.Items.Add(new MenuFlyoutSeparator());
+                for (int i = 0; i < tracks.Count; i++)
+                {
+                    var item = new MenuFlyoutItem { Text = "[内嵌] " + tracks[i].Item2 };
+                    int index = i;
+                    item.Click += (s, args) => _viewModel.SelectEmbeddedSubtitleCommand.Execute(index);
+                    menu.Items.Add(item);
+                }
+            }
+
+            menu.Items.Add(new MenuFlyoutSeparator());
+            var load = new MenuFlyoutItem { Text = "加载外部字幕..." };
+            load.Click += async (s, args) =>
+            {
+                try
+                {
+                    var picker = new Windows.Storage.Pickers.FileOpenPicker
+                    {
+                        SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.VideosLibrary
+                    };
+                    foreach (string ext in new[] { ".srt", ".vtt", ".ass", ".ssa" })
+                        picker.FileTypeFilter.Add(ext);
+
+                    var file = await picker.PickSingleFileAsync();
+                    if (file != null)
+                    {
+                        _playback.ClearEmbeddedSubtitles();
+                        await _viewModel.LoadSubtitleAsync(file);
+                    }
+                }
+                catch { }
+            };
+            menu.Items.Add(load);
+
+            if (sender is Button button)
+            {
+                menu.ShowAt(button);
+            }
         }
 
         #endregion

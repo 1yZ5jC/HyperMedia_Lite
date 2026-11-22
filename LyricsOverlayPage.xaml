@@ -1,0 +1,28 @@
+<Page
+    x:Class="HyperMedia_Lite.LyricsOverlayPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid Background="#00000000" RequestedTheme="Dark">
+        <Border x:Name="LyricBubble" HorizontalAlignment="Center" VerticalAlignment="Center"
+                Background="#99000000" Padding="18,10" Visibility="Collapsed">
+            <StackPanel HorizontalAlignment="Center">
+                <Grid>
+                    <TextBlock x:Name="Line1Under" FontSize="30" Foreground="#99000000"
+                               HorizontalAlignment="Center" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="Line1Over" FontSize="30" Foreground="White"
+                               HorizontalAlignment="Center" TextWrapping="Wrap"/>
+                </Grid>
+                <TextBlock x:Name="Line2Text" FontSize="16" Foreground="#CCFFFFFF"
+                           HorizontalAlignment="Center" Margin="0,6,0,0" TextWrapping="Wrap"/>
+            </StackPanel>
+        </Border>
+
+        <Button Content="关闭" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                Margin="8" Background="Transparent" Foreground="#AAFFFFFF" BorderThickness="0"
+                Click="Close_Click" ToolTipService.ToolTip="关闭桌面歌词"/>
+    </Grid>
+</Page>

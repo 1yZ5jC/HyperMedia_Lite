@@ -1,3 +1,4 @@
+using HyperMedia_Lite;
 using HyperMedia_Lite.Helpers;
 using HyperMedia_Lite.Models;
 using HyperMedia_Lite.Services;
@@ -44,6 +45,12 @@ namespace HyperMedia_Lite.ViewModels
         private bool _isLoading;
         private bool _isInitialized;
 
+        private IReadOnlyList<LyricLine> _lyrics = new List<LyricLine>();
+        private IReadOnlyList<SubtitleLine> _subtitles = new List<SubtitleLine>();
+        private int _lyricIndex = -1;
+        private int _subtitleIndex = -1;
+        private MediaItem _activeItem;
+
         public ObservableCollection<NavItem> NavItems { get; } = new ObservableCollection<NavItem>();
         public ObservableCollection<MediaItem> CurrentItems { get; } = new ObservableCollection<MediaItem>();
         public ObservableCollection<MediaItem> Songs { get; } = new ObservableCollection<MediaItem>();
@@ -60,6 +67,12 @@ namespace HyperMedia_Lite.ViewModels
         public RelayCommand PreviousCommand { get; }
         public RelayCommand CyclePlayModeCommand { get; }
         public RelayCommand SetPlayModeCommand { get; }
+        public RelayCommand ChangeLyricsCommand { get; }
+        public RelayCommand ToggleDesktopLyricsCommand { get; }
+        public RelayCommand SelectEmbeddedSubtitleCommand { get; }
+        public RelayCommand ClearSubtitleCommand { get; }
+        public RelayCommand SeekToLyricCommand { get; }
+        public RelayCommand CycleRateCommand { get; }
         public RelayCommand ExpandPlayerCommand { get; }
         public RelayCommand ClearArtistFilterCommand { get; }
 
@@ -77,6 +90,38 @@ namespace HyperMedia_Lite.ViewModels
             NextCommand = new RelayCommand(_ => _playback.Next());
             PreviousCommand = new RelayCommand(_ => _playback.Previous());
             CyclePlayModeCommand = new RelayCommand(_ => _playback.CycleMode());
+            ChangeLyricsCommand = new RelayCommand(_ => _ = ReloadLyricsAsync());
+            ToggleDesktopLyricsCommand = new RelayCommand(_ => _ = DesktopLyricsBridge.ToggleAsync());
+            SelectEmbeddedSubtitleCommand = new RelayCommand(parameter =>
+            {
+                if (parameter is int index)
+                {
+                    var tracks = _playback.GetEmbeddedSubtitleTracks();
+                    if (index >= 0 && index < tracks.Count)
+                    {
+                        _playback.SelectEmbeddedSubtitle(tracks[index].Item1);
+                    }
+                }
+            });
+            ClearSubtitleCommand = new RelayCommand(_ => ClearSubtitles());
+            CycleRateCommand = new RelayCommand(_ =>
+            {
+                double[] rates = { 0.5, 0.75, 1.0, 1.25, 1.5, 2.0 };
+                double current = _playback.PlaybackRate;
+                double next = rates.FirstOrDefault(r => r > current + 0.01);
+                _playback.PlaybackRate = next > 0 ? next : rates[0];
+            });
+            SeekToLyricCommand = new RelayCommand(parameter =>
+            {
+                if (parameter is LyricLine line)
+                {
+                    _playback.Seek(line.TimeSeconds);
+                }
+                else if (parameter is int index && index >= 0 && index < _lyrics.Count)
+                {
+                    _playback.Seek(_lyrics[index].TimeSeconds);
+                }
+            });
             SetPlayModeCommand = new RelayCommand(parameter =>
             {
                 if (parameter is string text && Enum.TryParse(text, out PlaybackMode mode))
@@ -586,10 +631,15 @@ namespace HyperMedia_Lite.ViewModels
             OnPropertyChanged(nameof(PlaybackPosition));
             OnPropertyChanged(nameof(PlaybackDuration));
             OnPropertyChanged(nameof(Volume));
+            OnPropertyChanged(nameof(RateText));
+            UpdateLyricAndSubtitle(_playback.Position.TotalSeconds);
         }
 
         private void OnPlaybackItemChanged(object sender, EventArgs e)
         {
+            _activeItem = _playback.CurrentItem;
+            _ = LoadLyricsAsync(_activeItem);
+            _ = LoadSubtitlesAsync(_activeItem);
             OnPropertyChanged(nameof(IsPlayerVisible));
             OnPropertyChanged(nameof(CurrentTrack));
             OnPropertyChanged(nameof(TrackTitle));
@@ -601,11 +651,157 @@ namespace HyperMedia_Lite.ViewModels
             OnPropertyChanged(nameof(CurrentTimeText));
             OnPropertyChanged(nameof(TotalTimeText));
             OnPropertyChanged(nameof(PlaybackDuration));
+            OnPropertyChanged(nameof(HasEmbeddedSubtitles));
+            OnPropertyChanged(nameof(IsCurrentVideo));
+            OnPropertyChanged(nameof(IsCurrentAudio));
             UpdateNavCounts();
             if (_currentNav == NavTarget.Queue)
             {
                 ApplyViews();
             }
+        }
+
+        private async System.Threading.Tasks.Task LoadLyricsAsync(MediaItem item)
+        {
+            _lyrics = new List<LyricLine>();
+            _lyricIndex = -1;
+            OnPropertyChanged(nameof(Lyrics));
+            OnPropertyChanged(nameof(HasLyrics));
+            OnPropertyChanged(nameof(CurrentLyricText));
+            OnPropertyChanged(nameof(NextLyricText));
+            DesktopLyricsBridge.Clear();
+
+            if (item == null || item.Kind != MediaKind.Audio)
+            {
+                return;
+            }
+
+            var lines = await LyricsService.LoadAsync(item);
+            if (_activeItem != item || lines == null)
+            {
+                return;
+            }
+            _lyrics = lines;
+            OnPropertyChanged(nameof(Lyrics));
+            OnPropertyChanged(nameof(HasLyrics));
+            UpdateLyricAndSubtitle(_playback.Position.TotalSeconds);
+        }
+
+        public async System.Threading.Tasks.Task LoadSubtitleAsync(StorageFile file)
+        {
+            var lines = await SubtitleService.LoadAsync(file);
+            _subtitles = lines ?? new List<SubtitleLine>();
+            _subtitleIndex = -1;
+            OnPropertyChanged(nameof(Subtitles));
+            OnPropertyChanged(nameof(HasSubtitle));
+            UpdateLyricAndSubtitle(_playback.Position.TotalSeconds);
+        }
+
+        private void ClearSubtitles()
+        {
+            _playback.ClearEmbeddedSubtitles();
+            _subtitles = new List<SubtitleLine>();
+            _subtitleIndex = -1;
+            OnPropertyChanged(nameof(Subtitles));
+            OnPropertyChanged(nameof(HasSubtitle));
+            OnPropertyChanged(nameof(CurrentSubtitleText));
+        }
+
+        private async System.Threading.Tasks.Task ReloadLyricsAsync()
+        {
+            var item = _activeItem;
+            if (item == null)
+            {
+                return;
+            }
+            await LyricsService.ForgetChoiceAsync(item);
+            await LoadLyricsAsync(item);
+        }
+
+        private async System.Threading.Tasks.Task LoadSubtitlesAsync(MediaItem item)
+        {
+            _subtitles = new List<SubtitleLine>();
+            _subtitleIndex = -1;
+            OnPropertyChanged(nameof(Subtitles));
+            OnPropertyChanged(nameof(CurrentSubtitleText));
+            OnPropertyChanged(nameof(HasSubtitle));
+
+            if (item == null || item.Kind != MediaKind.Video || item.File == null)
+            {
+                return;
+            }
+
+            var file = await SubtitleService.FindSiblingAsync(item.File);
+            if (file == null)
+            {
+                return;
+            }
+            var lines = await SubtitleService.LoadAsync(file);
+            if (_activeItem != item || lines == null || lines.Count == 0)
+            {
+                return;
+            }
+            _subtitles = lines;
+            OnPropertyChanged(nameof(Subtitles));
+            OnPropertyChanged(nameof(HasSubtitle));
+            UpdateLyricAndSubtitle(_playback.Position.TotalSeconds);
+        }
+
+        private void UpdateLyricAndSubtitle(double position)
+        {
+            int lyricIndex = LyricsParser.GetCurrentIndex(_lyrics, position);
+            if (lyricIndex != _lyricIndex)
+            {
+                _lyricIndex = lyricIndex;
+                OnPropertyChanged(nameof(CurrentLyricText));
+                OnPropertyChanged(nameof(NextLyricText));
+                OnPropertyChanged(nameof(PreviousLyricText));
+                OnPropertyChanged(nameof(Next2LyricText));
+
+                if (lyricIndex >= 0 && lyricIndex < _lyrics.Count)
+                {
+                    if (DesktopLyricsBridge.Enabled)
+                    {
+                        string next = lyricIndex + 1 < _lyrics.Count ? _lyrics[lyricIndex + 1].Text : "";
+                        DesktopLyricsBridge.Update(_lyrics[lyricIndex].Text, next);
+                    }
+                }
+                else
+                {
+                    DesktopLyricsBridge.Clear();
+                }
+            }
+
+            int subtitleIndex = SubtitleParser.FindCurrentIndex(_subtitles, position);
+            if (subtitleIndex != _subtitleIndex)
+            {
+                _subtitleIndex = subtitleIndex;
+                OnPropertyChanged(nameof(CurrentSubtitleText));
+                OnPropertyChanged(nameof(CurrentSubtitleFontSize));
+                OnPropertyChanged(nameof(CurrentSubtitleBold));
+                OnPropertyChanged(nameof(CurrentSubtitleItalic));
+                OnPropertyChanged(nameof(CurrentSubtitleColorHex));
+                OnPropertyChanged(nameof(CurrentSubtitleAlignment));
+            }
+
+            UpdateWordProgress(position);
+        }
+
+        private int _wordStyledLine = -1;
+
+        private void UpdateWordProgress(double position)
+        {
+            if (_lyricIndex < 0 || _lyricIndex >= _lyrics.Count)
+            {
+                return;
+            }
+            var line = _lyrics[_lyricIndex];
+            if (line.Words == null || line.Words.Count == 0 || !IsPlaying)
+            {
+                return;
+            }
+            // 逐字进度由页面根据 CurrentLyricText 与 Words 自行渲染；这里仅通知刷新。
+            OnPropertyChanged(nameof(LyricWords));
         }
 
         #region 界面绑定属性
@@ -748,6 +944,60 @@ namespace HyperMedia_Lite.ViewModels
 
         public bool IsRepeat => _playback.IsRepeat;
 
+        // ───────────────────── 歌词 / 字幕 ─────────────────────
+
+        public IReadOnlyList<LyricLine> Lyrics => _lyrics;
+
+        public IList<LyricWord> LyricWords => _lyricIndex >= 0 && _lyricIndex < _lyrics.Count
+            ? _lyrics[_lyricIndex].Words : null;
+
+        public int LyricIndex => _lyricIndex;
+
+        public bool HasLyrics => _lyrics != null && _lyrics.Count > 0;
+
+        public string CurrentLyricText => _lyricIndex >= 0 && _lyricIndex < _lyrics.Count
+            ? _lyrics[_lyricIndex].Text : "";
+
+        public string NextLyricText => _lyricIndex >= 0 && _lyricIndex + 1 < _lyrics.Count
+            ? _lyrics[_lyricIndex + 1].Text : "";
+
+        public string PreviousLyricText => _lyricIndex > 0 && _lyricIndex - 1 < _lyrics.Count
+            ? _lyrics[_lyricIndex - 1].Text : "";
+
+        public string Next2LyricText => _lyricIndex >= 0 && _lyricIndex + 2 < _lyrics.Count
+            ? _lyrics[_lyricIndex + 2].Text : "";
+
+        public IReadOnlyList<string> EmbeddedSubtitleNames =>
+            _playback.GetEmbeddedSubtitleTracks().Select(t => t.Item2).ToList();
+
+        public bool HasEmbeddedSubtitles => EmbeddedSubtitleNames.Count > 0;
+
+        public bool IsCurrentVideo => _activeItem != null && _activeItem.Kind == MediaKind.Video;
+
+        public bool IsCurrentAudio => _activeItem != null && _activeItem.Kind == MediaKind.Audio;
+
+        public IReadOnlyList<SubtitleLine> Subtitles => _subtitles;
+
+        public bool HasSubtitle => _subtitles != null && _subtitles.Count > 0;
+
+        public string CurrentSubtitleText => _subtitleIndex >= 0 && _subtitleIndex < _subtitles.Count
+            ? _subtitles[_subtitleIndex].Text : "";
+
+        public double CurrentSubtitleFontSize => _subtitleIndex >= 0 && _subtitleIndex < _subtitles.Count
+            ? _subtitles[_subtitleIndex].FontSize : 28;
+
+        public bool CurrentSubtitleBold => _subtitleIndex >= 0 && _subtitleIndex < _subtitles.Count
+            && _subtitles[_subtitleIndex].Bold;
+
+        public bool CurrentSubtitleItalic => _subtitleIndex >= 0 && _subtitleIndex < _subtitles.Count
+            && _subtitles[_subtitleIndex].Italic;
+
+        public string CurrentSubtitleColorHex => _subtitleIndex >= 0 && _subtitleIndex < _subtitles.Count
+            ? _subtitles[_subtitleIndex].ColorHex : "#FFFFFFFF";
+
+        public int CurrentSubtitleAlignment => _subtitleIndex >= 0 && _subtitleIndex < _subtitles.Count
+            ? _subtitles[_subtitleIndex].Alignment : 2;
+
         public string PlayModeGlyph
         {
             get
@@ -801,6 +1051,8 @@ namespace HyperMedia_Lite.ViewModels
             get => _playback.VolumePercent;
             set => _playback.SetVolume(value);
         }
+
+        public string RateText => _playback.PlaybackRate.ToString("0.##") + "x";
 
         #endregion
 

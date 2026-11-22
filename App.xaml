@@ -62,6 +62,17 @@
         <SolidColorBrush x:Key="OverlaySliderFillBrush" Color="#CCFFFFFF"/>
         <SolidColorBrush x:Key="OverlaySliderTrackBrush" Color="#55FFFFFF"/>
         <SolidColorBrush x:Key="OverlaySliderThumbBrush" Color="#FFFFFFFF"/>
+
+        <!-- Slider 模板内部画刷：让 PointerOver / Pressed 与常态同色，避免悬停变黑 -->
+        <SolidColorBrush x:Key="SliderThumbBackgroundDisabled" Color="#FFFFFFFF"/>
+        <SolidColorBrush x:Key="SliderTrackFill" Color="#66FFFFFF"/>
+        <SolidColorBrush x:Key="SliderTrackFillPointerOver" Color="#66FFFFFF"/>
+        <SolidColorBrush x:Key="SliderTrackFillPressed" Color="#66FFFFFF"/>
+        <SolidColorBrush x:Key="SliderTrackFillDisabled" Color="#66FFFFFF"/>
+        <SolidColorBrush x:Key="SliderTrackValueFill" Color="#99000000"/>
+        <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="#99000000"/>
+        <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="#99000000"/>
+        <SolidColorBrush x:Key="SliderTrackValueFillDisabled" Color="#99000000"/>
     </Application.Resources>
 
 </Application>

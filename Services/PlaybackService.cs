@@ -41,6 +41,94 @@ namespace HyperMedia_Lite.Services
 
         public MediaPlayer Player => _player;
 
+        private MediaPlaybackItem _playbackItem;
+
+        /// <summary>是否支持平台内嵌字幕轨选择（14393+ 的 MediaPlaybackItem）。</summary>
+        public bool CanSelectEmbeddedSubtitles => !_useLegacyPlayback && _playbackItem != null;
+
+        /// <summary>当前媒体容器中可选择的字幕轨（标签 + 轨道引用）。</summary>
+        public IReadOnlyList<Tuple<TimedMetadataTrack, string>> GetEmbeddedSubtitleTracks()
+        {
+            var result = new List<Tuple<TimedMetadataTrack, string>>();
+            if (!CanSelectEmbeddedSubtitles)
+            {
+                return result;
+            }
+            try
+            {
+                var tracks = _playbackItem.TimedMetadataTracks;
+                for (int i = 0; i < tracks.Count; i++)
+                {
+                    var track = tracks[i];
+                    if (track == null || track.TimedMetadataKind != TimedMetadataKind.Subtitle)
+                    {
+                        continue;
+                    }
+                    string label = track.Label;
+                    if (string.IsNullOrWhiteSpace(label)) label = track.Language;
+                    if (string.IsNullOrWhiteSpace(label)) label = "字幕轨 " + i;
+                    result.Add(Tuple.Create(track, label));
+                }
+            }
+            catch (Exception)
+            {
+                // ignored
+            }
+            return result;
+        }
+
+        public bool SelectEmbeddedSubtitle(TimedMetadataTrack track)
+        {
+            if (!CanSelectEmbeddedSubtitles || track == null)
+            {
+                return false;
+            }
+            try
+            {
+                var tracks = _playbackItem.TimedMetadataTracks;
+                for (int i = 0; i < tracks.Count; i++)
+                {
+                    var item = tracks[i];
+                    if (item == null || item.TimedMetadataKind != TimedMetadataKind.Subtitle)
+                    {
+                        continue;
+                    }
+                    tracks.SetPresentationMode((uint)i,
+                        ReferenceEquals(item, track)
+                            ? TimedMetadataTrackPresentationMode.PlatformPresented
+                            : TimedMetadataTrackPresentationMode.Disabled);
+                }
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        public void ClearEmbeddedSubtitles()
+        {
+            if (!CanSelectEmbeddedSubtitles)
+            {
+                return;
+            }
+            try
+            {
+                var tracks = _playbackItem.TimedMetadataTracks;
+                for (int i = 0; i < tracks.Count; i++)
+                {
+                    if (tracks[i]?.TimedMetadataKind == TimedMetadataKind.Subtitle)
+                    {
+                        tracks.SetPresentationMode((uint)i, TimedMetadataTrackPresentationMode.Disabled);
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // ignored
+            }
+        }
+
         /// <summary>10240 上的视频后端（MediaElement）。14393+ 保持为 null。</summary>
         private IVideoBackend _videoBackend;
         public IVideoBackend VideoBackend
@@ -249,7 +337,9 @@ namespace HyperMedia_Lite.Services
                 }
                 else
                 {
-                    _player.Source = MediaSource.CreateFromStorageFile(item.File);
+                    var source = MediaSource.CreateFromStorageFile(item.File);
+                    _playbackItem = new MediaPlaybackItem(source);
+                    _player.Source = _playbackItem;
                     _player.Play();
                 }
             }
@@ -362,6 +452,30 @@ namespace HyperMedia_Lite.Services
 
         public double VolumePercent => (UseVideoBackend ? _videoBackend.Volume : _player.Volume) * 100.0;
 
+        public double PlaybackRate
+        {
+            get => UseVideoBackend
+                ? _videoBackend.Rate
+                : _useLegacyPlayback ? _player.PlaybackRate : _player.PlaybackSession.PlaybackRate;
+            set
+            {
+                double rate = Math.Max(0.25, Math.Min(4.0, value));
+                if (UseVideoBackend)
+                {
+                    _videoBackend.Rate = rate;
+                }
+                else if (_useLegacyPlayback)
+                {
+                    _player.PlaybackRate = rate;
+                }
+                else
+                {
+                    _player.PlaybackSession.PlaybackRate = rate;
+                }
+                RaiseStateChanged();
+            }
+        }
+
         public void SetMode(PlaybackMode mode)
         {
             Mode = mode;
@@ -381,6 +495,7 @@ namespace HyperMedia_Lite.Services
             _videoBackend?.Stop();
             _player.Pause();
             _player.Source = null;
+            _playbackItem = null;
             CurrentIndex = -1;
             Queue.Clear();
             RaiseItemChanged();

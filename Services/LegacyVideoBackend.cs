@@ -21,6 +21,7 @@ namespace HyperMedia_Lite.Services
         TimeSpan Duration { get; }
         bool IsPlaying { get; }
         double Volume { get; set; }
+        double Rate { get; set; }
         event EventHandler StateChanged;
         event EventHandler MediaEnded;
     }
@@ -101,6 +102,12 @@ namespace HyperMedia_Lite.Services
         {
             get => _element.Volume;
             set => _element.Volume = Math.Max(0, Math.Min(1, value));
+        }
+
+        public double Rate
+        {
+            get => _element.PlaybackRate;
+            set => _element.PlaybackRate = Math.Max(0.25, Math.Min(4.0, value));
         }
     }
 }

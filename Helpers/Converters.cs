@@ -63,6 +63,34 @@ namespace HyperMedia_Lite.Helpers
         }
     }
 
+    /// <summary>"#RRGGBB" / "#AARRGGBB" -> SolidColorBrush（字幕颜色）。</summary>
+    public sealed class HexColorToBrushConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            try
+            {
+                string hex = (value as string ?? "").Trim().TrimStart('#');
+                if (hex.Length == 6) hex = "FF" + hex;
+                if (hex.Length == 8)
+                {
+                    byte a = System.Convert.ToByte(hex.Substring(0, 2), 16);
+                    byte r = System.Convert.ToByte(hex.Substring(2, 2), 16);
+                    byte g = System.Convert.ToByte(hex.Substring(4, 2), 16);
+                    byte b = System.Convert.ToByte(hex.Substring(6, 2), 16);
+                    return new SolidColorBrush(Color.FromArgb(a, r, g, b));
+                }
+            }
+            catch { }
+            return new SolidColorBrush(Colors.White);
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
     /// <summary>
     /// bool -> Opacity（用于随机 / 循环的激活态）。
     /// </summary>

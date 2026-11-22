@@ -14,6 +14,7 @@
         <helpers:BoolToAccentBrushConverter x:Key="BoolToAccentBrush"/>
         <helpers:BoolToTextBrushConverter x:Key="BoolToTextBrush"/>
         <helpers:BoolToOpacityConverter x:Key="BoolToOpacityConverter"/>
+        <helpers:HexColorToBrushConverter x:Key="HexColorToBrushConverter"/>
         <helpers:TextToVisibilityConverter x:Key="TextToVisibility"/>
 
         <Style x:Key="NavItemStyle" TargetType="ListViewItem">
@@ -89,6 +90,35 @@
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid x:Name="ButtonRoot" Background="Transparent">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal"/>
+                                    <VisualState x:Name="PointerOver">
+                                        <VisualState.Setters>
+                                            <Setter Target="ButtonRoot.Background" Value="#33FFFFFF"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Pressed">
+                                        <VisualState.Setters>
+                                            <Setter Target="ButtonRoot.Background" Value="#55FFFFFF"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Disabled">
+                                        <VisualState.Setters>
+                                            <Setter Target="ButtonRoot.Opacity" Value="0.4"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </Page.Resources>
 
@@ -103,6 +133,9 @@
                     <VisualState.Setters>
                         <Setter Target="HeaderPanel.Padding" Value="8,12,8,0"/>
                         <Setter Target="PageTitleText.FontSize" Value="20"/>
+                        <Setter Target="AudioPanel.Margin" Value="12,64,12,140"/>
+                        <Setter Target="WideLyricLayout.Visibility" Value="Collapsed"/>
+                        <Setter Target="NarrowLyricLayout.Visibility" Value="Visible"/>
                         <Setter Target="SortComboBox.Visibility" Value="Collapsed"/>
                         <Setter Target="ShuffleAllText.Visibility" Value="Collapsed"/>
                         <Setter Target="RefreshButton.Visibility" Value="Collapsed"/>
@@ -116,7 +149,7 @@
                         <Setter Target="PlayIconGrid.Height" Value="28"/>
                         <Setter Target="PlayerProgressRow.Margin" Value="0,2,0,0"/>
                         <Setter Target="PlayerTitlePanel.Visibility" Value="Collapsed"/>
-                        <Setter Target="ModeButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="ModeButton.Width" Value="40"/>
                         <Setter Target="PlayerTransport.Margin" Value="0"/>
                         <Setter Target="PrevButton.Margin" Value="4,0,0,0"/>
                         <Setter Target="PlayButton.Margin" Value="4,0,0,0"/>
@@ -145,6 +178,9 @@
                     <VisualState.Setters>
                         <Setter Target="HeaderPanel.Padding" Value="12,16,12,0"/>
                         <Setter Target="PageTitleText.FontSize" Value="22"/>
+                        <Setter Target="AudioPanel.Margin" Value="16,64,16,140"/>
+                        <Setter Target="WideLyricLayout.Visibility" Value="Collapsed"/>
+                        <Setter Target="NarrowLyricLayout.Visibility" Value="Visible"/>
                         <Setter Target="SortComboBox.Visibility" Value="Collapsed"/>
                         <Setter Target="ShuffleAllText.Visibility" Value="Collapsed"/>
                         <Setter Target="RefreshButton.Visibility" Value="Collapsed"/>
@@ -157,8 +193,8 @@
                         <Setter Target="PlayIconGrid.Width" Value="32"/>
                         <Setter Target="PlayIconGrid.Height" Value="32"/>
                         <Setter Target="PlayerProgressRow.Margin" Value="0,4,0,0"/>
-                        <Setter Target="PlayerTitlePanel.MaxWidth" Value="120"/>
-                        <Setter Target="ModeButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="PlayerTitlePanel.Visibility" Value="Collapsed"/>
+                        <Setter Target="ModeButton.Width" Value="40"/>
                         <Setter Target="PlayerTransport.Margin" Value="4,0"/>
                         <Setter Target="PlayerModeText.Visibility" Value="Collapsed"/>
                         <Setter Target="PrevButton.Margin" Value="6,0,0,0"/>
@@ -197,7 +233,9 @@
                         <Setter Target="HeaderOverflowButton.Visibility" Value="Collapsed"/>
                         <Setter Target="PlayerOverflowButton.Visibility" Value="Collapsed"/>
                         <Setter Target="PhotoOverflowButton.Visibility" Value="Collapsed"/>
-                        <Setter Target="ModeButton.Visibility" Value="Visible"/>
+                        <Setter Target="ModeButton.Width" Value="96"/>
+                        <Setter Target="WideLyricLayout.Visibility" Value="Visible"/>
+                        <Setter Target="NarrowLyricLayout.Visibility" Value="Collapsed"/>
                     </VisualState.Setters>
                 </VisualState>
                 <VisualState x:Name="WideLayout">
@@ -208,7 +246,9 @@
                         <Setter Target="HeaderOverflowButton.Visibility" Value="Collapsed"/>
                         <Setter Target="PlayerOverflowButton.Visibility" Value="Collapsed"/>
                         <Setter Target="PhotoOverflowButton.Visibility" Value="Collapsed"/>
-                        <Setter Target="ModeButton.Visibility" Value="Visible"/>
+                        <Setter Target="ModeButton.Width" Value="96"/>
+                        <Setter Target="WideLyricLayout.Visibility" Value="Visible"/>
+                        <Setter Target="NarrowLyricLayout.Visibility" Value="Collapsed"/>
                     </VisualState.Setters>
                 </VisualState>
             </VisualStateGroup>
@@ -654,6 +694,7 @@
                             <!-- 播放顺序按钮移到右侧 -->
                             <Button x:Name="ModeButton" Width="96" Height="40" Padding="0" Margin="0,0,12,0"
                                     Background="Transparent" BorderThickness="0" Foreground="White"
+                                    Visibility="{Binding IsCurrentAudio, Converter={StaticResource BoolToVisibility}}"
                                     Command="{Binding CyclePlayModeCommand}"
                                     AutomationProperties.Name="切换播放顺序">
                                 <StackPanel Orientation="Horizontal">
@@ -667,6 +708,7 @@
                                     Value="{Binding Volume, Mode=TwoWay}" VerticalAlignment="Center"
                                     Foreground="{StaticResource SliderFillBrush}" Background="{StaticResource SliderTrackBrush}"/>
                             <Button x:Name="LyricsButton" Style="{StaticResource PlaybackIconButtonStyle}" Width="32" Margin="14,0,0,0"
+                                    Command="{Binding ExpandPlayerCommand}" ToolTipService.ToolTip="打开歌词"
                                     AutomationProperties.Name="歌词">
                                 <TextBlock Text="词" FontSize="14" Foreground="White"/>
                             </Button>
@@ -789,69 +831,243 @@
         </Grid>
 
         <!-- ==================== 正在播放（全屏浮层） ==================== -->
-        <Grid x:Name="PlayerOverlay" Grid.ColumnSpan="2" Visibility="Collapsed" Background="#FF0D0D0D">
+        <Grid x:Name="PlayerOverlay" Grid.ColumnSpan="2" Visibility="Collapsed" Background="#FF0D0D0D"
+              PointerMoved="PlayerOverlay_PointerMoved">
             <!-- 14393+ 时在代码中动态注入 MediaPlayerElement；10240 上该 XAML 类型不存在 -->
             <Grid x:Name="VideoHost" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
-            <Grid x:Name="AudioPanel" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center">
-                <StackPanel HorizontalAlignment="Center">
-                    <Border Width="280" Height="280" Background="{Binding TrackFallbackBrush}"
-                            HorizontalAlignment="Center">
-                        <Grid>
-                            <TextBlock Text="{Binding TrackInitial}" FontSize="96" Foreground="#59FFFFFF"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       Visibility="{Binding HasTrackThumbnail, ConverterParameter=Invert, Converter={StaticResource BoolToVisibility}}"/>
-                            <Image Source="{Binding TrackThumbnail}" Stretch="UniformToFill"
-                                   Visibility="{Binding HasTrackThumbnail, Converter={StaticResource BoolToVisibility}}"/>
-                        </Grid>
-                    </Border>
-                    <TextBlock Text="{Binding TrackTitle}" FontSize="22" FontWeight="SemiBold"
-                               Foreground="White" HorizontalAlignment="Center" Margin="0,24,0,0"
-                               TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Text="{Binding TrackSubtitle}" FontSize="14" Foreground="#CCFFFFFF"
-                               HorizontalAlignment="Center" Margin="0,4,0,0"/>
-                </StackPanel>
+            <Grid x:Name="AudioPanel" Visibility="Collapsed" HorizontalAlignment="Stretch"
+                  VerticalAlignment="Stretch" Margin="16,72,16,150">
+
+                <!-- 宽窗：大封面左 + 歌词右 -->
+                <Grid x:Name="WideLyricLayout">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel x:Name="NowPlayingArt" Grid.Column="0" VerticalAlignment="Center"
+                                Margin="0,0,48,0" MaxWidth="320">
+                        <Border x:Name="NowPlayingCover" Width="280" Height="280"
+                                Background="{Binding TrackFallbackBrush}" HorizontalAlignment="Center">
+                            <Grid>
+                                <TextBlock Text="{Binding TrackInitial}" FontSize="84" Foreground="#59FFFFFF"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Visibility="{Binding HasTrackThumbnail, ConverterParameter=Invert, Converter={StaticResource BoolToVisibility}}"/>
+                                <Image Source="{Binding TrackThumbnail}" Stretch="UniformToFill"
+                                       Visibility="{Binding HasTrackThumbnail, Converter={StaticResource BoolToVisibility}}"/>
+                            </Grid>
+                        </Border>
+                        <TextBlock x:Name="NowPlayingTitle" Text="{Binding TrackTitle}" FontSize="20"
+                                   FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center"
+                                   Margin="0,22,0,0" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock x:Name="NowPlayingSubtitle" Text="{Binding TrackSubtitle}" FontSize="13"
+                                   Foreground="#CCFFFFFF" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                MaxWidth="800" Margin="16,0">
+                        <TextBlock x:Name="PrevLyricBlock" Text="{Binding PreviousLyricText}" FontSize="22"
+                                   Foreground="#77FFFFFF" TextAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,20"/>
+                        <TextBlock x:Name="CurrentLyricBlock" Text="{Binding CurrentLyricText}" FontSize="22"
+                                   Foreground="#77FFFFFF" TextAlignment="Center" TextWrapping="Wrap" Margin="0,12"/>
+                        <TextBlock x:Name="NextLyricBlock" Text="{Binding NextLyricText}" FontSize="22"
+                                   Foreground="#77FFFFFF" TextAlignment="Center" TextWrapping="Wrap" Margin="20,0,0,0"/>
+                        <TextBlock x:Name="Next2LyricBlock" Text="{Binding Next2LyricText}" FontSize="22"
+                                   Foreground="#77FFFFFF" TextAlignment="Center" TextWrapping="Wrap" Margin="10,0,0,0"/>
+                        <TextBlock Text="暂无歌词" FontSize="14" Foreground="#88FFFFFF"
+                                   HorizontalAlignment="Center" Margin="0,20,0,0"
+                                   Visibility="{Binding HasLyrics, ConverterParameter=Invert, Converter={StaticResource BoolToVisibility}}"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- 窄窗：单列 sheet，小封面头部 + 大歌词 -->
+                <Grid x:Name="NarrowLyricLayout" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="8,8,0,0">
+                        <Border Width="64" Height="64" Background="{Binding TrackFallbackBrush}">
+                            <Grid>
+                                <TextBlock Text="{Binding TrackInitial}" FontSize="26" Foreground="#59FFFFFF"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Visibility="{Binding HasTrackThumbnail, ConverterParameter=Invert, Converter={StaticResource BoolToVisibility}}"/>
+                                <Image Source="{Binding TrackThumbnail}" Stretch="UniformToFill"
+                                       Visibility="{Binding HasTrackThumbnail, Converter={StaticResource BoolToVisibility}}"/>
+                            </Grid>
+                        </Border>
+                        <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding TrackTitle}" FontSize="16" FontWeight="SemiBold"
+                                       Foreground="White" TextTrimming="CharacterEllipsis" MaxWidth="220"
+                                       HorizontalAlignment="Left"/>
+                            <TextBlock Text="{Binding TrackSubtitle}" FontSize="13" Foreground="#CCFFFFFF"
+                                       Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
+                    <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Left"
+                                Margin="24,0,16,0">
+                        <TextBlock x:Name="NarrowPrevLyric" Text="{Binding PreviousLyricText}" FontSize="18"
+                                   Foreground="#77FFFFFF" TextAlignment="Left" TextWrapping="Wrap" Margin="0,0,0,20"/>
+                        <TextBlock x:Name="NarrowCurrentLyric" Text="{Binding CurrentLyricText}" FontSize="18"
+                                   Foreground="#77FFFFFF" TextAlignment="Left" TextWrapping="Wrap" Margin="0,12"/>
+                        <TextBlock x:Name="NarrowNextLyric" Text="{Binding NextLyricText}" FontSize="18"
+                                   Foreground="#77FFFFFF" TextAlignment="Left" TextWrapping="Wrap" Margin="20,0,0,0"/>
+                        <TextBlock x:Name="NarrowNext2Lyric" Text="{Binding Next2LyricText}" FontSize="18"
+                                   Foreground="#77FFFFFF" TextAlignment="Left" TextWrapping="Wrap" Margin="10,0,0,0"/>
+                        <TextBlock Text="暂无歌词" FontSize="14" Foreground="#88FFFFFF"
+                                   HorizontalAlignment="Left" Margin="0,20,0,0"
+                                   Visibility="{Binding HasLyrics, ConverterParameter=Invert, Converter={StaticResource BoolToVisibility}}"/>
+                    </StackPanel>
+                </Grid>
             </Grid>
-            <Grid Height="64" VerticalAlignment="Top" Padding="16,0">
-                <Button Style="{StaticResource OverlayIconButtonStyle}" Width="40" Height="36"
+
+            <!-- 全部歌词面板：完整歌词列表，点击行可跳转播放位置 -->
+            <Border x:Name="FullLyricPanel" Grid.ColumnSpan="2" HorizontalAlignment="Right"
+                    VerticalAlignment="Stretch" Width="360" Margin="0,64,0,0"
+                    Background="#F21C1C1C" BorderBrush="#FF333333" BorderThickness="1,0,0,0"
+                    Visibility="Collapsed">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Grid Grid.Row="0" Padding="14,10" Background="#FF252525">
+                        <TextBlock Text="全部歌词" FontSize="14" FontWeight="SemiBold"
+                                   Foreground="White" VerticalAlignment="Center"/>
+                        <Button Style="{StaticResource OverlayIconButtonStyle}" Width="32" Height="32"
+                                HorizontalAlignment="Right" Click="CloseFullLyric_Click"
+                                ToolTipService.ToolTip="关闭" AutomationProperties.Name="关闭全部歌词">
+                            <FontIcon Glyph="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="White"/>
+                        </Button>
+                    </Grid>
+                    <ListView x:Name="FullLyricList" Grid.Row="1" ItemsSource="{Binding Lyrics}"
+                              SelectionMode="None" IsItemClickEnabled="True"
+                              ItemClick="FullLyric_ItemClick" Padding="0,4">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock x:Name="FullLyricText" Text="{Binding Text}"
+                                           FontSize="15" Foreground="#AAFFFFFF" TextWrapping="Wrap"
+                                           Margin="14,7" IsHitTestVisible="False"/>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+            </Border>
+
+            <!-- 自绘字幕层（外挂 SRT/VTT/ASS，10240 可用） -->
+            <Border x:Name="SubtitleLayer" HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                    Margin="0,0,0,150" MaxWidth="900" Padding="16,8" IsHitTestVisible="False"
+                    Visibility="{Binding HasSubtitle, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock x:Name="SubtitleText" Text="{Binding CurrentSubtitleText}"
+                           HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"
+                           FontSize="{Binding CurrentSubtitleFontSize}"
+                           Foreground="{Binding CurrentSubtitleColorHex, Converter={StaticResource HexColorToBrushConverter}}"/>
+            </Border>
+            <Grid x:Name="VideoTopBar" Height="64" VerticalAlignment="Top" Padding="16,0" Background="#CC000000">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Button Grid.Column="0" Style="{StaticResource OverlayIconButtonStyle}" Width="40" Height="36"
                         ToolTipService.ToolTip="返回 (Esc)"
-                        Click="ClosePlayer_Click" HorizontalAlignment="Left" AutomationProperties.Name="关闭播放界面">
+                        Click="ClosePlayer_Click" AutomationProperties.Name="关闭播放界面">
                     <FontIcon Glyph="&#xE72B;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="White"/>
                 </Button>
-                <TextBlock Text="正在播放" FontSize="14" Foreground="#CCFFFFFF"
+                <TextBlock Grid.Column="1" Text="正在播放" FontSize="14" Foreground="#CCFFFFFF"
                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Style="{StaticResource OverlayIconButtonStyle}" Width="40" Height="36"
+                            ToolTipService.ToolTip="全部歌词（点击跳转）" Click="ToggleFullLyric_Click"
+                            AutomationProperties.Name="全部歌词">
+                        <FontIcon Glyph="&#xE8FD;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="White"/>
+                    </Button>
+                    <Button Style="{StaticResource OverlayIconButtonStyle}" Width="40" Height="36"
+                            ToolTipService.ToolTip="换一首歌词" Command="{Binding ChangeLyricsCommand}"
+                            AutomationProperties.Name="换词">
+                        <FontIcon Glyph="&#xE8B1;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="White"/>
+                    </Button>
+                    <Button Style="{StaticResource OverlayIconButtonStyle}" Width="40" Height="36"
+                            ToolTipService.ToolTip="桌面歌词" Command="{Binding ToggleDesktopLyricsCommand}"
+                            AutomationProperties.Name="桌面歌词">
+                        <FontIcon Glyph="&#xE7F3;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="White"/>
+                    </Button>
+                    <Button Style="{StaticResource OverlayIconButtonStyle}" Width="40" Height="36"
+                            ToolTipService.ToolTip="内嵌字幕（视频）" Click="Subtitle_Click"
+                            Visibility="{Binding IsCurrentVideo, Converter={StaticResource BoolToVisibility}}"
+                            AutomationProperties.Name="内嵌字幕">
+                        <FontIcon Glyph="&#xE8BA;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="White"/>
+                    </Button>
+                    <Button Style="{StaticResource OverlayIconButtonStyle}" Width="40" Height="36"
+                            ToolTipService.ToolTip="字幕（外挂）" Click="Subtitle_Click"
+                            Visibility="{Binding IsCurrentVideo, ConverterParameter=Invert, Converter={StaticResource BoolToVisibility}}"
+                            AutomationProperties.Name="字幕">
+                        <FontIcon Glyph="&#xE8BA;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="White"/>
+                    </Button>
+                </StackPanel>
             </Grid>
-            <Grid VerticalAlignment="Bottom" Padding="24,16" Background="#99000000">
+            <Grid x:Name="VideoBottomBar" VerticalAlignment="Bottom" Padding="24,16" Background="#99000000">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
-                <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center">
-                    <Button Width="110" Height="40" Padding="0" Margin="0,0,18,0"
-                            Background="Transparent" BorderThickness="0" Foreground="White"
-                            Command="{Binding CyclePlayModeCommand}" AutomationProperties.Name="切换播放顺序">
-                        <StackPanel Orientation="Horizontal">
-                            <FontIcon Glyph="{Binding PlayModeGlyph}" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
-                            <TextBlock Text="{Binding PlayModeText}" FontSize="11" Margin="8,0,0,0"
-                                       VerticalAlignment="Center" Foreground="White"/>
-                        </StackPanel>
-                    </Button>
-                    <Button Style="{StaticResource PlaybackIconButtonStyle}"
-                            Command="{Binding PreviousCommand}" AutomationProperties.Name="上一首">
-                        <FontIcon Glyph="&#xE892;" FontFamily="Segoe MDL2 Assets" FontSize="20"/>
-                    </Button>
-                    <Button Style="{StaticResource PlaybackIconButtonStyle}" Width="48" Height="48" Margin="18,0,0,0"
-                            Command="{Binding TogglePlayPauseCommand}" AutomationProperties.Name="播放或暂停">
-                        <Grid Width="40" Height="40">
-                            <Ellipse Stroke="White" StrokeThickness="1.5"/>
-                            <FontIcon Glyph="{Binding PlayPauseGlyph}" FontFamily="Segoe MDL2 Assets"
-                                      FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Grid>
-                    </Button>
-                    <Button Style="{StaticResource PlaybackIconButtonStyle}" Margin="18,0,0,0"
-                            Command="{Binding NextCommand}" AutomationProperties.Name="下一首">
-                        <FontIcon Glyph="&#xE893;" FontFamily="Segoe MDL2 Assets" FontSize="20"/>
-                    </Button>
-                </StackPanel>
+
+                <!-- 播放控制行：左侧留白 / 中间传输按钮 / 右侧音量、倍速、全屏 -->
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button x:Name="NowPlayingModeButton" Width="110" Height="40" Padding="0" Margin="0,0,18,0"
+                                Background="Transparent" BorderThickness="0" Foreground="White"
+                                Visibility="{Binding IsCurrentAudio, Converter={StaticResource BoolToVisibility}}"
+                                Command="{Binding CyclePlayModeCommand}" AutomationProperties.Name="切换播放顺序">
+                            <StackPanel Orientation="Horizontal">
+                                <FontIcon Glyph="{Binding PlayModeGlyph}" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
+                                <TextBlock Text="{Binding PlayModeText}" FontSize="11" Margin="8,0,0,0"
+                                           VerticalAlignment="Center" Foreground="White"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource PlaybackIconButtonStyle}"
+                                Command="{Binding PreviousCommand}" AutomationProperties.Name="上一首">
+                            <FontIcon Glyph="&#xE892;" FontFamily="Segoe MDL2 Assets" FontSize="20"/>
+                        </Button>
+                        <Button Style="{StaticResource PlaybackIconButtonStyle}" Width="48" Height="48" Margin="18,0,0,0"
+                                Command="{Binding TogglePlayPauseCommand}" AutomationProperties.Name="播放或暂停">
+                            <Grid Width="40" Height="40">
+                                <Ellipse Stroke="White" StrokeThickness="1.5"/>
+                                <FontIcon Glyph="{Binding PlayPauseGlyph}" FontFamily="Segoe MDL2 Assets"
+                                          FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Button>
+                        <Button Style="{StaticResource PlaybackIconButtonStyle}" Margin="18,0,0,0"
+                                Command="{Binding NextCommand}" AutomationProperties.Name="下一首">
+                            <FontIcon Glyph="&#xE893;" FontFamily="Segoe MDL2 Assets" FontSize="20"/>
+                        </Button>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right"
+                                VerticalAlignment="Center">
+                        <FontIcon Glyph="&#xE767;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="White"/>
+                        <Slider Width="110" Minimum="0" Maximum="100" Margin="10,0,12,0"
+                                Value="{Binding Volume, Mode=TwoWay}" VerticalAlignment="Center"
+                                Foreground="{StaticResource OverlaySliderFillBrush}"
+                                Background="{StaticResource OverlaySliderTrackBrush}"
+                                AutomationProperties.Name="音量"/>
+                        <Button Width="52" Height="34" Padding="0" Margin="0,0,8,0"
+                                Style="{StaticResource PlaybackIconButtonStyle}"
+                                Command="{Binding CycleRateCommand}"
+                                ToolTipService.ToolTip="播放倍速" AutomationProperties.Name="播放倍速">
+                            <TextBlock Text="{Binding RateText}" FontSize="13" Foreground="White"/>
+                        </Button>
+                        <Button Width="40" Height="34" Padding="0"
+                                Style="{StaticResource PlaybackIconButtonStyle}"
+                                Click="Fullscreen_Click"
+                                ToolTipService.ToolTip="全屏" AutomationProperties.Name="全屏">
+                            <FontIcon Glyph="&#xE740;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="White"/>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
                 <Grid Grid.Row="1" Margin="0,10,0,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
