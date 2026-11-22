@@ -1,18 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices.WindowsRuntime;
+﻿using HyperMedia_Lite.Services;
+using HyperMedia_Lite.ViewModels;
+using System;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.Activation;
-using Windows.Foundation;
-using Windows.Foundation.Collections;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Controls.Primitives;
-using Windows.UI.Xaml.Data;
-using Windows.UI.Xaml.Input;
-using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
 
 namespace HyperMedia_Lite
@@ -22,6 +14,14 @@ namespace HyperMedia_Lite
     /// </summary>
     sealed partial class App : Application
     {
+        private static MainViewModel _mainViewModel;
+
+        /// <summary>
+        /// 全局共享的视图模型，保证在主页与设置页之间切换时媒体库和播放状态不丢失。
+        /// </summary>
+        public static MainViewModel MainViewModel =>
+            _mainViewModel ?? (_mainViewModel = new MainViewModel());
+
         /// <summary>
         /// 初始化单一实例应用程序对象。这是执行的创作代码的第一行，
         /// 已执行，逻辑上等同于 main() 或 WinMain()。
@@ -50,11 +50,6 @@ namespace HyperMedia_Lite
 
                 rootFrame.NavigationFailed += OnNavigationFailed;
 
-                if (e.PreviousExecutionState == ApplicationExecutionState.Terminated)
-                {
-                    //TODO: 从之前挂起的应用程序加载状态
-                }
-
                 // 将框架放在当前窗口中
                 Window.Current.Content = rootFrame;
             }
@@ -63,9 +58,6 @@ namespace HyperMedia_Lite
             {
                 if (rootFrame.Content == null)
                 {
-                    // 当导航堆栈尚未还原时，导航到第一页，
-                    // 并通过将所需信息作为导航参数传入来配置
-                    // 参数
                     rootFrame.Navigate(typeof(MainPage), e.Arguments);
                 }
                 // 确保当前窗口处于活动状态
@@ -93,7 +85,7 @@ namespace HyperMedia_Lite
         private void OnSuspending(object sender, SuspendingEventArgs e)
         {
             var deferral = e.SuspendingOperation.GetDeferral();
-            //TODO: 保存应用程序状态并停止任何后台活动
+            PlaybackService.Current.Pause();
             deferral.Complete();
         }
     }

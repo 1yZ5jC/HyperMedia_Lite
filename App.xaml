@@ -5,9 +5,9 @@
     xmlns:local="using:HyperMedia_Lite">
 
     <Application.Resources>
-        <!-- 全局设计令牌：主页 Groove 风格（浅色 + 青色强调色） -->
-        <SolidColorBrush x:Key="AccentBrush" Color="#FF00A3B4"/>
-        <SolidColorBrush x:Key="AccentPressedBrush" Color="#FF008C9A"/>
+        <!-- 全局设计令牌：Groove 风格（浅色 + 蓝色强调色，贴合参考界面） -->
+        <SolidColorBrush x:Key="AccentBrush" Color="#FF0089D0"/>
+        <SolidColorBrush x:Key="AccentPressedBrush" Color="#FF0074B3"/>
         <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFFFF"/>
         <SolidColorBrush x:Key="NavBackgroundBrush" Color="#FFF7F7F7"/>
         <SolidColorBrush x:Key="NavForegroundBrush" Color="#FF6B6B6B"/>
