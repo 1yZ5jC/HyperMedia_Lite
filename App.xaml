@@ -4,4 +4,16 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:HyperMedia_Lite">
 
+    <Application.Resources>
+        <!-- 全局设计令牌：主页 Groove 风格（浅色 + 青色强调色） -->
+        <SolidColorBrush x:Key="AccentBrush" Color="#FF00A3B4"/>
+        <SolidColorBrush x:Key="AccentPressedBrush" Color="#FF008C9A"/>
+        <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFFFF"/>
+        <SolidColorBrush x:Key="NavBackgroundBrush" Color="#FFF7F7F7"/>
+        <SolidColorBrush x:Key="NavForegroundBrush" Color="#FF6B6B6B"/>
+        <SolidColorBrush x:Key="PageBackgroundBrush" Color="#FFF1F1F1"/>
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FF1A1A1A"/>
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#FF767676"/>
+    </Application.Resources>
+
 </Application>

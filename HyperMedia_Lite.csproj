@@ -123,6 +123,10 @@
       <DependentUpon>MainPage.xaml</DependentUpon>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Helpers\BindableBase.cs" />
+    <Compile Include="Helpers\Converters.cs" />
+    <Compile Include="Models\MediaCard.cs" />
+    <Compile Include="ViewModels\MainViewModel.cs" />
   </ItemGroup>
   <ItemGroup>
     <AppxManifest Include="Package.appxmanifest">
