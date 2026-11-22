@@ -16,6 +16,9 @@ namespace HyperMedia_Lite
     {
         private static MainViewModel _mainViewModel;
 
+        /// <summary>从编辑器返回时需要恢复的图片灯箱项。</summary>
+        public static Models.MediaItem PhotoToRestore { get; set; }
+
         /// <summary>
         /// 全局共享的视图模型，保证在主页与设置页之间切换时媒体库和播放状态不丢失。
         /// </summary>

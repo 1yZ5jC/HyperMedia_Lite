@@ -812,8 +812,11 @@
                 </StackPanel>
             </Grid>
             <Grid Height="64" VerticalAlignment="Top" Padding="16,0">
-                <Button Content="返回" Background="Transparent" Foreground="White" BorderThickness="0"
-                        Click="ClosePlayer_Click" HorizontalAlignment="Left" AutomationProperties.Name="关闭播放界面"/>
+                <Button Style="{StaticResource OverlayIconButtonStyle}" Width="40" Height="36"
+                        ToolTipService.ToolTip="返回 (Esc)"
+                        Click="ClosePlayer_Click" HorizontalAlignment="Left" AutomationProperties.Name="关闭播放界面">
+                    <FontIcon Glyph="&#xE72B;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="White"/>
+                </Button>
                 <TextBlock Text="正在播放" FontSize="14" Foreground="#CCFFFFFF"
                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Grid>
@@ -960,10 +963,12 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Content="返回" Width="48" Height="34" Padding="0"
+                    <Button Width="40" Height="34" Padding="0"
                             Style="{StaticResource OverlayIconButtonStyle}"
                             ToolTipService.ToolTip="返回 (Esc)"
-                            Click="ClosePhoto_Click" AutomationProperties.Name="关闭图片"/>
+                            Click="ClosePhoto_Click" AutomationProperties.Name="关闭图片">
+                        <FontIcon Glyph="&#xE72B;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="White"/>
+                    </Button>
                     <TextBlock x:Name="PhotoTitle" FontSize="13" Foreground="#CCFFFFFF"
                                MaxWidth="260" Margin="12,0,0,0" VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis"/>

@@ -84,7 +84,7 @@ namespace HyperMedia_Lite.Services
         public bool IsPlaying => UseVideoBackend
             ? _videoBackend.IsPlaying
             : _useLegacyPlayback
-                ? _player.CurrentState == MediaPlaybackState.Playing
+                ? _player.CurrentState == MediaPlayerState.Playing
                 : _player.PlaybackSession.PlaybackState == MediaPlaybackState.Playing;
 
         public TimeSpan Position => UseVideoBackend

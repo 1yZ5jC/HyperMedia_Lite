@@ -90,7 +90,9 @@ namespace HyperMedia_Lite.Services
 
         public TimeSpan Position => _element.Position;
 
-        public TimeSpan Duration => _element.NaturalDuration;
+        public TimeSpan Duration => _element.NaturalDuration.HasTimeSpan
+            ? _element.NaturalDuration.TimeSpan
+            : TimeSpan.Zero;
 
         public bool IsPlaying =>
             _element.CurrentState == MediaElementState.Playing;

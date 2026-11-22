@@ -60,6 +60,18 @@ namespace HyperMedia_Lite
         {
             Loaded -= MainPage_Loaded;
             await _viewModel.InitializeAsync();
+
+            // 从编辑页返回时恢复图片查看器。
+            if (App.PhotoToRestore != null)
+            {
+                var item = App.PhotoToRestore;
+                App.PhotoToRestore = null;
+                if (!_viewModel.CurrentItems.Any(i => i == item))
+                {
+                    _viewModel.Select(NavTarget.Photos);
+                }
+                OnPhotoRequested(this, item);
+            }
         }
 
         protected override void OnNavigatedFrom(NavigationEventArgs e)
@@ -448,7 +460,8 @@ namespace HyperMedia_Lite
                 return;
             }
             StopSlideShow();
-            Frame.Navigate(typeof(EditPage), _photoItems[_photoIndex]);
+            App.PhotoToRestore = _photoItems[_photoIndex];
+            Frame.Navigate(typeof(EditPage), App.PhotoToRestore);
         }
 
         private void Info_Click(object sender, RoutedEventArgs e)
