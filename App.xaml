@@ -59,6 +59,8 @@
         <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="#FFFFFFFF"/>
         <SolidColorBrush x:Key="SliderThumbBorderBrush" Color="#FF1A1A1A"/>
         <!-- 全屏播放页（深色背景）专用 -->
+        <!-- 正在播放页背景：封面主色压暗后的颜色，无封面色时回落为灰色 -->
+        <SolidColorBrush x:Key="NowPlayingBackdropBrush" Color="#FF242424"/>
         <SolidColorBrush x:Key="OverlaySliderFillBrush" Color="#CCFFFFFF"/>
         <SolidColorBrush x:Key="OverlaySliderTrackBrush" Color="#55FFFFFF"/>
         <SolidColorBrush x:Key="OverlaySliderThumbBrush" Color="#FFFFFFFF"/>

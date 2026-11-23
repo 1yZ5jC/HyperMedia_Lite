@@ -63,6 +63,61 @@ namespace HyperMedia_Lite.Helpers
         }
     }
 
+    /// <summary>当前歌词行 = 大字号，其余 = 基础字号（参数格式："大|小"）。</summary>
+    public sealed class BoolToFontSizeConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            double active = 40, normal = 22;
+            string text = parameter as string;
+            if (!string.IsNullOrEmpty(text))
+            {
+                string[] parts = text.Split('|');
+                if (parts.Length == 2)
+                {
+                    double.TryParse(parts[0], out active);
+                    double.TryParse(parts[1], out normal);
+                }
+            }
+            return (value is bool b && b) ? active : normal;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    public sealed class BoolToFontWeightConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            return (value is bool b && b)
+                ? Windows.UI.Text.FontWeights.SemiBold
+                : Windows.UI.Text.FontWeights.Normal;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    public sealed class BoolToLyricBrushConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            return (value is bool b && b)
+                ? new SolidColorBrush(Colors.White)
+                : new SolidColorBrush(Color.FromArgb(0x77, 0xFF, 0xFF, 0xFF));
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
     /// <summary>"#RRGGBB" / "#AARRGGBB" -> SolidColorBrush（字幕颜色）。</summary>
     public sealed class HexColorToBrushConverter : IValueConverter
     {

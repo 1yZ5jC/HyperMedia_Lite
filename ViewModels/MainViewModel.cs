@@ -714,6 +714,7 @@ namespace HyperMedia_Lite.ViewModels
             OnPropertyChanged(nameof(HasEmbeddedSubtitles));
             OnPropertyChanged(nameof(IsCurrentVideo));
             OnPropertyChanged(nameof(IsCurrentAudio));
+            OnPropertyChanged(nameof(IsPlayOrderVisible));
             UpdateNavCounts();
             if (_currentNav == NavTarget.Queue)
             {
@@ -742,6 +743,9 @@ namespace HyperMedia_Lite.ViewModels
                 return;
             }
             _lyrics = lines;
+            DebugLog.Write("LYRIC",
+                $"loaded {lines.Count} lines, firstStart=" +
+                (lines.Count > 0 ? lines[0].TimeSeconds.ToString("0.00") : "n/a") + "s");
             OnPropertyChanged(nameof(Lyrics));
             OnPropertyChanged(nameof(HasLyrics));
             UpdateLyricAndSubtitle(_playback.Position.TotalSeconds);
@@ -838,8 +842,23 @@ namespace HyperMedia_Lite.ViewModels
             int lyricIndex = LyricsParser.GetCurrentIndex(_lyrics, position);
             if (lyricIndex != _lyricIndex)
             {
+                DebugLog.Write("LYRIC",
+                    $"index {_lyricIndex} -> {lyricIndex}, pos={position:0.00}s, " +
+                    $"lines={_lyrics.Count}, " +
+                    (lyricIndex >= 0 && lyricIndex < _lyrics.Count
+                        ? $"lineStart={_lyrics[lyricIndex].TimeSeconds:0.00}s"
+                        : "no active line"));
+                if (_lyricIndex >= 0 && _lyricIndex < _lyrics.Count)
+                {
+                    _lyrics[_lyricIndex].IsCurrent = false;
+                }
                 _lyricIndex = lyricIndex;
+                if (_lyricIndex >= 0 && _lyricIndex < _lyrics.Count)
+                {
+                    _lyrics[_lyricIndex].IsCurrent = true;
+                }
                 OnPropertyChanged(nameof(CurrentLyricText));
+                OnPropertyChanged(nameof(CurrentLyricStartTime));
                 OnPropertyChanged(nameof(NextLyricText));
                 OnPropertyChanged(nameof(PreviousLyricText));
                 OnPropertyChanged(nameof(Next2LyricText));
@@ -1041,6 +1060,9 @@ namespace HyperMedia_Lite.ViewModels
         public IList<LyricWord> LyricWords => _lyricIndex >= 0 && _lyricIndex < _lyrics.Count
             ? _lyrics[_lyricIndex].Words : null;
 
+        public double CurrentLyricStartTime => _lyricIndex >= 0 && _lyricIndex < _lyrics.Count
+            ? _lyrics[_lyricIndex].TimeSeconds : 0;
+
         public int LyricIndex => _lyricIndex;
 
         public bool HasLyrics => _lyrics != null && _lyrics.Count > 0;
@@ -1065,6 +1087,21 @@ namespace HyperMedia_Lite.ViewModels
         public bool IsCurrentVideo => _activeItem != null && _activeItem.Kind == MediaKind.Video;
 
         public bool IsCurrentAudio => _activeItem != null && _activeItem.Kind == MediaKind.Audio;
+
+        private bool _isCompact;
+        public bool IsCompact
+        {
+            get => _isCompact;
+            set
+            {
+                if (SetProperty(ref _isCompact, value))
+                {
+                    OnPropertyChanged(nameof(IsPlayOrderVisible));
+                }
+            }
+        }
+
+        public bool IsPlayOrderVisible => IsCurrentAudio && !IsCompact;
 
         public IReadOnlyList<SubtitleLine> Subtitles => _subtitles;
 

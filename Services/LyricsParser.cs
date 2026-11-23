@@ -13,11 +13,18 @@ namespace HyperMedia_Lite
 {
     // ───────────────────────── Models ─────────────────────────
 
-    public sealed class LyricLine
+    public sealed class LyricLine : HyperMedia_Lite.Helpers.BindableBase
     {
         public double TimeSeconds { get; set; }
         public string Text { get; set; }
         public List<LyricWord> Words { get; set; }
+
+        private bool _isCurrent;
+        public bool IsCurrent
+        {
+            get => _isCurrent;
+            set => SetProperty(ref _isCurrent, value);
+        }
     }
 
     public sealed class LyricWord
@@ -278,7 +285,9 @@ namespace HyperMedia_Lite
         public static int GetCurrentIndex(IReadOnlyList<LyricLine> lines, double position)
         {
             if (lines == null || lines.Count == 0) return -1;
-            int idx = 0;
+
+            // 必须初始化为 -1：若播放位置早于第一行开始时间，不应有当前行。
+            int idx = -1;
             for (int i = 0; i < lines.Count; i++)
             {
                 if (lines[i].TimeSeconds <= position) idx = i;

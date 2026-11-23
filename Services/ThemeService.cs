@@ -94,6 +94,12 @@ namespace HyperMedia_Lite.Services
 
             SetColor("AccentBrush", accent);
             SetColor("AccentPressedBrush", accentPressed);
+
+            // 音频播放页背景只跟随封面取色；没有封面色时回落为中性灰。
+            Color backdrop = _dynamicAccent.HasValue
+                ? Darken(_dynamicAccent.Value, 0.30)
+                : Hex(0x242424);
+            SetColor("NowPlayingBackdropBrush", backdrop);
             SetColor("SurfaceBrush", dark ? Hex(0x1F1F1F) : Hex(0xFFFFFF));
             SetColor("NavBackgroundBrush", dark ? Hex(0x252525) : Hex(0xF7F7F7));
             SetColor("NavForegroundBrush", dark ? Hex(0xB0B0B0) : Hex(0x6B6B6B));

@@ -59,6 +59,7 @@ namespace HyperMedia_Lite
             _viewModel.PropertyChanged += ViewModel_PropertyChanged;
             Window.Current.CoreWindow.KeyDown += CoreWindow_KeyDown;
             Window.Current.SizeChanged += OnWindowSizeChanged;
+            _viewModel.IsCompact = Window.Current.Bounds.Width < 641;
 
             Loaded += MainPage_Loaded;
         }
@@ -446,43 +447,37 @@ namespace HyperMedia_Lite
 
         private void OnWindowSizeChanged(object sender, Windows.UI.Core.WindowSizeChangedEventArgs e)
         {
+            _viewModel.IsCompact = Window.Current.Bounds.Width < 641;
             UpdateLyricHighlight();
         }
 
-        private TextBlock ActiveLyricBlock =>
-            Window.Current.Bounds.Width < 641 ? NarrowCurrentLyric : CurrentLyricBlock;
+        private ListView ActiveLyricList =>
+            Window.Current.Bounds.Width < 641 ? NarrowLyricList : WideLyricList;
 
-        private TextBlock[] ActiveLyricBlocks =>
-            Window.Current.Bounds.Width < 641
-                ? new[] { NarrowPrevLyric, NarrowCurrentLyric, NarrowNextLyric, NarrowNext2Lyric }
-                : new[] { PrevLyricBlock, CurrentLyricBlock, NextLyricBlock, Next2LyricBlock };
+        private TextBlock GetLyricTextBlock(ListView list, int index)
+        {
+            try
+            {
+                if (list == null || index < 0 || index >= list.Items.Count) return null;
+                var container = list.ContainerFromIndex(index) as ListViewItem;
+                return container?.FindName("LyricText") as TextBlock;
+            }
+            catch { return null; }
+        }
 
         private void UpdateLyricHighlight()
         {
             try
             {
-                bool narrow = Window.Current.Bounds.Width < 641;
-                double baseSize = narrow ? 18 : 22;
-                double activeSize = narrow ? 28 : 40;
-                var blocks = ActiveLyricBlocks;
-                Brush dim = new SolidColorBrush(Windows.UI.Color.FromArgb(0x77, 0xFF, 0xFF, 0xFF));
+                var list = ActiveLyricList;
+                if (list == null) return;
 
-                // 所有句子默认保持同样字号；只有播放到的当前句才放大。
-                foreach (var block in blocks)
+                // 当前行的字号/字重/颜色由 LyricLine.IsCurrent 通过绑定驱动，
+                // 不再手动设置容器属性（ScrollIntoView 时容器可能尚未生成）。
+                int index = _viewModel.LyricIndex;
+                if (index >= 0 && index < list.Items.Count)
                 {
-                    if (block == null) continue;
-                    block.FontSize = baseSize;
-                    block.FontWeight = Windows.UI.Text.FontWeights.Normal;
-                    block.Foreground = dim;
-                }
-
-                if (_viewModel.LyricIndex >= 0 && blocks[1] != null &&
-                    !string.IsNullOrEmpty(_viewModel.CurrentLyricText))
-                {
-                    var active = blocks[1];
-                    active.FontWeight = Windows.UI.Text.FontWeights.SemiBold;
-                    active.Foreground = new SolidColorBrush(Windows.UI.Colors.White);
-                    AnimateFontSize(active, baseSize, activeSize);
+                    list.ScrollIntoView(list.Items[index]);
                 }
 
                 UpdateWordHighlight();
@@ -525,13 +520,12 @@ namespace HyperMedia_Lite
             {
                 int index = _viewModel.LyricIndex;
                 var words = _viewModel.LyricWords;
-                var target = ActiveLyricBlock;
+                var target = GetLyricTextBlock(ActiveLyricList, index);
                 if (target == null) return;
 
-                // 布局切换时，先还原上一个目标上的逐字 Inlines。
+                // 不修改 TextBlock.Text（会破坏 Text 绑定），只操作 Inlines。
                 if (_wordStyledTarget != null && !ReferenceEquals(_wordStyledTarget, target))
                 {
-                    _wordStyledTarget.Text = _viewModel.CurrentLyricText;
                     _wordStyledTarget = null;
                     _wordStyledLine = -1;
                 }
@@ -539,12 +533,8 @@ namespace HyperMedia_Lite
                 if (index < 0 || words == null || words.Count == 0 ||
                     PlayerOverlay.Visibility != Visibility.Visible)
                 {
-                    if (_wordStyledLine != -1)
-                    {
-                        target.Text = _viewModel.CurrentLyricText;
-                        _wordStyledLine = -1;
-                        _wordStyledTarget = null;
-                    }
+                    _wordStyledLine = -1;
+                    _wordStyledTarget = null;
                     return;
                 }
 
@@ -558,15 +548,34 @@ namespace HyperMedia_Lite
                 }
 
                 double position = _viewModel.PlaybackPosition;
+                double lineStart = _viewModel.CurrentLyricStartTime;
+
+                // 只有到达该行开始时间才开始逐字高亮。
+                if (position < lineStart)
+                {
+                    return;
+                }
+
+                // 兼容两种字级时间：绝对时间（KRC/QRC）与相对行首的偏移。
+                bool relative = words.Count > 0 && words[0].StartSeconds < lineStart - 0.01;
                 Brush sung = new SolidColorBrush(Windows.UI.Colors.White);
                 Brush pending = new SolidColorBrush(Windows.UI.Color.FromArgb(0x73, 0xFF, 0xFF, 0xFF));
                 for (int i = 0; i < words.Count && i < target.Inlines.Count; i++)
                 {
+                    double wordStart = relative ? lineStart + words[i].StartSeconds : words[i].StartSeconds;
                     if (target.Inlines[i] is Run run)
-                        run.Foreground = position + 0.05 >= words[i].StartSeconds ? sung : pending;
+                        run.Foreground = position + 0.05 >= wordStart ? sung : pending;
                 }
             }
             catch { }
+        }
+
+        private void LyricLine_ItemClick(object sender, ItemClickEventArgs e)
+        {
+            if (e.ClickedItem is LyricLine line)
+            {
+                _viewModel.SeekToLyricCommand.Execute(line);
+            }
         }
 
         private void ToggleFullLyric_Click(object sender, RoutedEventArgs e)

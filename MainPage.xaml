@@ -15,6 +15,9 @@
         <helpers:BoolToTextBrushConverter x:Key="BoolToTextBrush"/>
         <helpers:BoolToOpacityConverter x:Key="BoolToOpacityConverter"/>
         <helpers:HexColorToBrushConverter x:Key="HexColorToBrushConverter"/>
+        <helpers:BoolToFontSizeConverter x:Key="BoolToFontSizeConverter"/>
+        <helpers:BoolToFontWeightConverter x:Key="BoolToFontWeightConverter"/>
+        <helpers:BoolToLyricBrushConverter x:Key="BoolToLyricBrushConverter"/>
         <helpers:TextToVisibilityConverter x:Key="TextToVisibility"/>
 
         <Style x:Key="NavItemStyle" TargetType="ListViewItem">
@@ -154,7 +157,11 @@
                         <Setter Target="PrevButton.Margin" Value="4,0,0,0"/>
                         <Setter Target="PlayButton.Margin" Value="4,0,0,0"/>
                         <Setter Target="NextButton.Margin" Value="4,0,0,0"/>
-                        <Setter Target="VolumePanel.Visibility" Value="Collapsed"/>
+                        <Setter Target="VolumePanel.Visibility" Value="Visible"/>
+                        <Setter Target="VolumeSlider.Width" Value="36"/>
+                        <Setter Target="NowPlayingRateButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="NowPlayingFullscreenButton.Visibility" Value="Visible"/>
+                        <Setter Target="NowPlayingMoreButton.Visibility" Value="Visible"/>
                         <Setter Target="LyricsButton.Visibility" Value="Collapsed"/>
                         <Setter Target="MoreButton.Visibility" Value="Collapsed"/>
                         <Setter Target="ExpandButton.Visibility" Value="Collapsed"/>
@@ -201,6 +208,9 @@
                         <Setter Target="PlayButton.Margin" Value="6,0,0,0"/>
                         <Setter Target="NextButton.Margin" Value="6,0,0,0"/>
                         <Setter Target="VolumeSlider.Width" Value="52"/>
+                        <Setter Target="NowPlayingRateButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="NowPlayingFullscreenButton.Visibility" Value="Visible"/>
+                        <Setter Target="NowPlayingMoreButton.Visibility" Value="Visible"/>
                         <Setter Target="LyricsButton.Visibility" Value="Collapsed"/>
                         <Setter Target="MoreButton.Visibility" Value="Collapsed"/>
                         <Setter Target="ExpandButton.Visibility" Value="Collapsed"/>
@@ -224,6 +234,9 @@
                     <VisualState.Setters>
                         <Setter Target="HeaderPanel.Padding" Value="20,20,20,0"/>
                         <Setter Target="PlayerTransport.Margin" Value="12,0"/>
+                        <Setter Target="NowPlayingCover.Width" Value="220"/>
+                        <Setter Target="NowPlayingCover.Height" Value="220"/>
+                        <Setter Target="NowPlayingArt.MaxWidth" Value="240"/>
                         <Setter Target="LyricsButton.Visibility" Value="Collapsed"/>
                         <Setter Target="MoreButton.Visibility" Value="Collapsed"/>
                         <Setter Target="AlbumGrid.Padding" Value="16,12,16,16"/>
@@ -234,6 +247,9 @@
                         <Setter Target="PlayerOverflowButton.Visibility" Value="Collapsed"/>
                         <Setter Target="PhotoOverflowButton.Visibility" Value="Collapsed"/>
                         <Setter Target="ModeButton.Width" Value="96"/>
+                        <Setter Target="NowPlayingRateButton.Visibility" Value="Visible"/>
+                        <Setter Target="NowPlayingFullscreenButton.Visibility" Value="Visible"/>
+                        <Setter Target="NowPlayingMoreButton.Visibility" Value="Collapsed"/>
                         <Setter Target="WideLyricLayout.Visibility" Value="Visible"/>
                         <Setter Target="NarrowLyricLayout.Visibility" Value="Collapsed"/>
                     </VisualState.Setters>
@@ -247,6 +263,9 @@
                         <Setter Target="PlayerOverflowButton.Visibility" Value="Collapsed"/>
                         <Setter Target="PhotoOverflowButton.Visibility" Value="Collapsed"/>
                         <Setter Target="ModeButton.Width" Value="96"/>
+                        <Setter Target="NowPlayingRateButton.Visibility" Value="Visible"/>
+                        <Setter Target="NowPlayingFullscreenButton.Visibility" Value="Visible"/>
+                        <Setter Target="NowPlayingMoreButton.Visibility" Value="Collapsed"/>
                         <Setter Target="WideLyricLayout.Visibility" Value="Visible"/>
                         <Setter Target="NarrowLyricLayout.Visibility" Value="Collapsed"/>
                     </VisualState.Setters>
@@ -748,7 +767,7 @@
                                 </StackPanel>
                             </Button>
                             <FontIcon Glyph="&#xE767;" FontFamily="Segoe MDL2 Assets" FontSize="18" Foreground="White"/>
-                            <Slider x:Name="VolumeSlider" Width="120" Minimum="0" Maximum="100" Margin="12,0,0,0"
+                            <Slider RequestedTheme="Dark" x:Name="VolumeSlider" Width="120" Minimum="0" Maximum="100" Margin="12,0,0,0"
                                     Value="{Binding Volume, Mode=TwoWay}" VerticalAlignment="Center"
                                     Foreground="{StaticResource SliderFillBrush}" Background="{StaticResource SliderTrackBrush}"/>
                             <Button x:Name="LyricsButton" Style="{StaticResource PlaybackIconButtonStyle}" Width="32" Margin="14,0,0,0"
@@ -793,7 +812,7 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="{Binding CurrentTimeText}" FontSize="11"
                                    Foreground="White" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                        <Slider Grid.Column="1" Minimum="0" Maximum="{Binding PlaybackDuration}"
+                        <Slider RequestedTheme="Dark" Grid.Column="1" Minimum="0" Maximum="{Binding PlaybackDuration}"
                                 Value="{Binding PlaybackPosition, Mode=TwoWay}" VerticalAlignment="Center"
                                 Foreground="{StaticResource SliderFillBrush}" Background="{StaticResource SliderTrackBrush}"/>
                         <TextBlock Grid.Column="2" Text="{Binding TotalTimeText}" FontSize="11"
@@ -875,20 +894,23 @@
         </Grid>
 
         <!-- ==================== 正在播放（全屏浮层） ==================== -->
-        <Grid x:Name="PlayerOverlay" Grid.ColumnSpan="2" Visibility="Collapsed" Background="#FF0D0D0D"
+        <Grid x:Name="PlayerOverlay" Grid.ColumnSpan="2" Visibility="Collapsed"
+              Background="{StaticResource NowPlayingBackdropBrush}"
               PointerMoved="PlayerOverlay_PointerMoved">
             <!-- 14393+ 时在代码中动态注入 MediaPlayerElement；10240 上该 XAML 类型不存在 -->
             <Grid x:Name="VideoHost" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
             <Grid x:Name="AudioPanel" Visibility="Collapsed" HorizontalAlignment="Stretch"
                   VerticalAlignment="Stretch" Margin="16,72,16,150">
 
-                <!-- 宽窗：大封面左 + 歌词右 -->
+                <!-- 宽窗：封面与歌词成对居中靠拢 -->
                 <Grid x:Name="WideLyricLayout">
                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <StackPanel x:Name="NowPlayingArt" Grid.Column="0" VerticalAlignment="Center"
+                    <StackPanel x:Name="NowPlayingArt" Grid.Column="1" VerticalAlignment="Center"
                                 Margin="0,0,48,0" MaxWidth="320">
                         <Border x:Name="NowPlayingCover" Width="280" Height="280"
                                 Background="{Binding TrackFallbackBrush}" HorizontalAlignment="Center">
@@ -906,23 +928,32 @@
                         <TextBlock x:Name="NowPlayingSubtitle" Text="{Binding TrackSubtitle}" FontSize="13"
                                    Foreground="#CCFFFFFF" HorizontalAlignment="Center" Margin="0,5,0,0"/>
                     </StackPanel>
-                    <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center"
-                                MaxWidth="800" Margin="16,0">
-                        <TextBlock x:Name="PrevLyricBlock" Text="{Binding PreviousLyricText}" FontSize="22"
-                                   Foreground="#77FFFFFF" TextAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,20"/>
-                        <TextBlock x:Name="CurrentLyricBlock" Text="{Binding CurrentLyricText}" FontSize="22"
-                                   Foreground="#77FFFFFF" TextAlignment="Center" TextWrapping="Wrap" Margin="0,12"/>
-                        <TextBlock x:Name="NextLyricBlock" Text="{Binding NextLyricText}" FontSize="22"
-                                   Foreground="#77FFFFFF" TextAlignment="Center" TextWrapping="Wrap" Margin="20,0,0,0"/>
-                        <TextBlock x:Name="Next2LyricBlock" Text="{Binding Next2LyricText}" FontSize="22"
-                                   Foreground="#77FFFFFF" TextAlignment="Center" TextWrapping="Wrap" Margin="10,0,0,0"/>
+                    <Grid Grid.Column="2" MaxWidth="520" MinWidth="0"
+                          HorizontalAlignment="Stretch" VerticalAlignment="Center">
+                        <ListView x:Name="WideLyricList" ItemsSource="{Binding Lyrics}"
+                                  SelectionMode="None" IsItemClickEnabled="True"
+                                  ItemClick="LyricLine_ItemClick"
+                                  ScrollViewer.HorizontalScrollMode="Disabled"
+                                  ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                                  Background="Transparent" MaxHeight="440">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock x:Name="LyricText" Text="{Binding Text}"
+                                               FontSize="{Binding IsCurrent, Converter={StaticResource BoolToFontSizeConverter}, ConverterParameter=40|22}"
+                                               FontWeight="{Binding IsCurrent, Converter={StaticResource BoolToFontWeightConverter}}"
+                                               Foreground="{Binding IsCurrent, Converter={StaticResource BoolToLyricBrushConverter}}"
+                                               TextAlignment="Center" TextWrapping="Wrap"
+                                               Margin="0,10" HorizontalAlignment="Center"/>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
                         <TextBlock Text="暂无歌词" FontSize="14" Foreground="#88FFFFFF"
-                                   HorizontalAlignment="Center" Margin="0,20,0,0"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
                                    Visibility="{Binding HasLyrics, ConverterParameter=Invert, Converter={StaticResource BoolToVisibility}}"/>
-                    </StackPanel>
+                    </Grid>
                 </Grid>
 
-                <!-- 窄窗：单列 sheet，小封面头部 + 大歌词 -->
+                <!-- 窄窗：小封面头部 + 完整歌词列表 -->
                 <Grid x:Name="NarrowLyricLayout" Visibility="Collapsed">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -946,20 +977,27 @@
                                        Margin="0,4,0,0"/>
                         </StackPanel>
                     </StackPanel>
-                    <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Left"
-                                Margin="24,0,16,0">
-                        <TextBlock x:Name="NarrowPrevLyric" Text="{Binding PreviousLyricText}" FontSize="18"
-                                   Foreground="#77FFFFFF" TextAlignment="Left" TextWrapping="Wrap" Margin="0,0,0,20"/>
-                        <TextBlock x:Name="NarrowCurrentLyric" Text="{Binding CurrentLyricText}" FontSize="18"
-                                   Foreground="#77FFFFFF" TextAlignment="Left" TextWrapping="Wrap" Margin="0,12"/>
-                        <TextBlock x:Name="NarrowNextLyric" Text="{Binding NextLyricText}" FontSize="18"
-                                   Foreground="#77FFFFFF" TextAlignment="Left" TextWrapping="Wrap" Margin="20,0,0,0"/>
-                        <TextBlock x:Name="NarrowNext2Lyric" Text="{Binding Next2LyricText}" FontSize="18"
-                                   Foreground="#77FFFFFF" TextAlignment="Left" TextWrapping="Wrap" Margin="10,0,0,0"/>
+                    <Grid Grid.Row="1" Margin="16,8,16,0">
+                        <ListView x:Name="NarrowLyricList" ItemsSource="{Binding Lyrics}"
+                                  SelectionMode="None" IsItemClickEnabled="True"
+                                  ItemClick="LyricLine_ItemClick"
+                                  ScrollViewer.HorizontalScrollMode="Disabled"
+                                  ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                                  Background="Transparent">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock x:Name="LyricText" Text="{Binding Text}"
+                                               FontSize="{Binding IsCurrent, Converter={StaticResource BoolToFontSizeConverter}, ConverterParameter=28|18}"
+                                               FontWeight="{Binding IsCurrent, Converter={StaticResource BoolToFontWeightConverter}}"
+                                               Foreground="{Binding IsCurrent, Converter={StaticResource BoolToLyricBrushConverter}}"
+                                               TextAlignment="Left" TextWrapping="Wrap" Margin="0,8"/>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
                         <TextBlock Text="暂无歌词" FontSize="14" Foreground="#88FFFFFF"
-                                   HorizontalAlignment="Left" Margin="0,20,0,0"
+                                   HorizontalAlignment="Left" VerticalAlignment="Center"
                                    Visibility="{Binding HasLyrics, ConverterParameter=Invert, Converter={StaticResource BoolToVisibility}}"/>
-                    </StackPanel>
+                    </Grid>
                 </Grid>
             </Grid>
 
@@ -1016,8 +1054,7 @@
                         Click="ClosePlayer_Click" AutomationProperties.Name="关闭播放界面">
                     <FontIcon Glyph="&#xE72B;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="White"/>
                 </Button>
-                <TextBlock Grid.Column="1" Text="正在播放" FontSize="14" Foreground="#CCFFFFFF"
-                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <!-- 顶部仅保留操作按钮，不再显示「正在播放」文字 -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button Style="{StaticResource OverlayIconButtonStyle}" Width="40" Height="36"
                             ToolTipService.ToolTip="添加到播放列表" Click="AddToPlaylist_Click"
@@ -1067,16 +1104,6 @@
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="1" Orientation="Horizontal">
-                        <Button x:Name="NowPlayingModeButton" Width="110" Height="40" Padding="0" Margin="0,0,18,0"
-                                Background="Transparent" BorderThickness="0" Foreground="White"
-                                Visibility="{Binding IsCurrentAudio, Converter={StaticResource BoolToVisibility}}"
-                                Command="{Binding CyclePlayModeCommand}" AutomationProperties.Name="切换播放顺序">
-                            <StackPanel Orientation="Horizontal">
-                                <FontIcon Glyph="{Binding PlayModeGlyph}" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
-                                <TextBlock Text="{Binding PlayModeText}" FontSize="11" Margin="8,0,0,0"
-                                           VerticalAlignment="Center" Foreground="White"/>
-                            </StackPanel>
-                        </Button>
                         <Button Style="{StaticResource PlaybackIconButtonStyle}"
                                 Command="{Binding PreviousCommand}" AutomationProperties.Name="上一首">
                             <FontIcon Glyph="&#xE892;" FontFamily="Segoe MDL2 Assets" FontSize="20"/>
@@ -1096,23 +1123,90 @@
                     </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right"
                                 VerticalAlignment="Center">
-                        <FontIcon Glyph="&#xE767;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="White"/>
-                        <Slider Width="110" Minimum="0" Maximum="100" Margin="10,0,12,0"
-                                Value="{Binding Volume, Mode=TwoWay}" VerticalAlignment="Center"
-                                Foreground="{StaticResource OverlaySliderFillBrush}"
-                                Background="{StaticResource OverlaySliderTrackBrush}"
-                                AutomationProperties.Name="音量"/>
-                        <Button Width="52" Height="34" Padding="0" Margin="0,0,8,0"
+                        <Button x:Name="NowPlayingModeButton" Width="90" Height="34" Padding="0" Margin="0,0,12,0"
+                                Background="Transparent" BorderThickness="0" Foreground="White"
+                                Visibility="{Binding IsPlayOrderVisible, Converter={StaticResource BoolToVisibility}}"
+                                Command="{Binding CyclePlayModeCommand}" AutomationProperties.Name="切换播放顺序">
+                            <StackPanel Orientation="Horizontal">
+                                <FontIcon Glyph="{Binding PlayModeGlyph}" FontFamily="Segoe MDL2 Assets" FontSize="14"/>
+                                <TextBlock Text="{Binding PlayModeText}" FontSize="11" Margin="6,0,0,0"
+                                           VerticalAlignment="Center" Foreground="White"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="NowPlayingVolumeButton" Width="40" Height="34" Padding="0" Margin="0,0,8,0"
+                                Style="{StaticResource PlaybackIconButtonStyle}"
+                                ToolTipService.ToolTip="音量" AutomationProperties.Name="音量">
+                            <FontIcon Glyph="&#xE767;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="White"/>
+                            <Button.Flyout>
+                                <Flyout Placement="Top">
+                                    <Flyout.FlyoutPresenterStyle>
+                                        <Style TargetType="FlyoutPresenter">
+                                            <Setter Property="Background" Value="#FF1C1C1C"/>
+                                            <Setter Property="Foreground" Value="White"/>
+                                            <Setter Property="RequestedTheme" Value="Dark"/>
+                                            <Setter Property="BorderBrush" Value="#FF333333"/>
+                                            <Setter Property="BorderThickness" Value="1"/>
+                                        </Style>
+                                    </Flyout.FlyoutPresenterStyle>
+                                    <StackPanel Width="200" Padding="12">
+                                        <TextBlock Text="音量" FontSize="12" Foreground="#CCFFFFFF"/>
+                                        <Slider RequestedTheme="Dark" Minimum="0" Maximum="100" Margin="0,10,0,0"
+                                                Value="{Binding Volume, Mode=TwoWay}"
+                                                Foreground="{StaticResource OverlaySliderFillBrush}"
+                                                Background="{StaticResource OverlaySliderTrackBrush}"
+                                                AutomationProperties.Name="音量"/>
+                                    </StackPanel>
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
+                        <Button x:Name="NowPlayingRateButton" Width="52" Height="34" Padding="0" Margin="0,0,8,0"
                                 Style="{StaticResource PlaybackIconButtonStyle}"
                                 Command="{Binding CycleRateCommand}"
                                 ToolTipService.ToolTip="播放倍速" AutomationProperties.Name="播放倍速">
                             <TextBlock Text="{Binding RateText}" FontSize="13" Foreground="White"/>
                         </Button>
-                        <Button Width="40" Height="34" Padding="0"
+                        <Button x:Name="NowPlayingFullscreenButton" Width="40" Height="34" Padding="0"
                                 Style="{StaticResource PlaybackIconButtonStyle}"
                                 Click="Fullscreen_Click"
                                 ToolTipService.ToolTip="全屏" AutomationProperties.Name="全屏">
                             <FontIcon Glyph="&#xE740;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="White"/>
+                        </Button>
+                        <Button x:Name="NowPlayingMoreButton" Width="40" Height="34" Padding="0"
+                                Style="{StaticResource PlaybackIconButtonStyle}" Visibility="Collapsed"
+                                ToolTipService.ToolTip="更多播放设置" AutomationProperties.Name="更多播放设置">
+                            <FontIcon Glyph="&#xE712;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="White"/>
+                            <Button.Flyout>
+                                <Flyout Placement="Top">
+                                    <Flyout.FlyoutPresenterStyle>
+                                        <Style TargetType="FlyoutPresenter">
+                                            <Setter Property="Background" Value="#FF1C1C1C"/>
+                                            <Setter Property="Foreground" Value="White"/>
+                                            <Setter Property="RequestedTheme" Value="Dark"/>
+                                            <Setter Property="BorderBrush" Value="#FF333333"/>
+                                            <Setter Property="BorderThickness" Value="1"/>
+                                        </Style>
+                                    </Flyout.FlyoutPresenterStyle>
+                                    <StackPanel Width="240" Padding="8">
+                                        <TextBlock Text="播放顺序" FontSize="12" Foreground="#CCFFFFFF"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Content="顺序" Padding="8,4" Margin="0,0,6,0"
+                                                    Command="{Binding SetPlayModeCommand}" CommandParameter="Sequential"/>
+                                            <Button Content="随机" Padding="8,4" Margin="0,0,6,0"
+                                                    Command="{Binding SetPlayModeCommand}" CommandParameter="Shuffle"/>
+                                            <Button Content="列表循环" Padding="8,4" Margin="0,0,6,0"
+                                                    Command="{Binding SetPlayModeCommand}" CommandParameter="RepeatAll"/>
+                                            <Button Content="单曲循环" Padding="8,4" Margin="0,0,6,0"
+                                                    Command="{Binding SetPlayModeCommand}" CommandParameter="RepeatOne"/>
+                                        </StackPanel>
+                                        <Button Content="只播放本曲" Padding="8,4" Margin="0,6,0,0"
+                                                Command="{Binding SetPlayModeCommand}" CommandParameter="PlayOnce"/>
+
+                                        <TextBlock Text="播放速度" FontSize="12" Foreground="#CCFFFFFF" Margin="0,14,0,6"/>
+                                        <Button Content="{Binding RateText}" Padding="12,4" Margin="0,12,0,0"
+                                                Command="{Binding CycleRateCommand}"/>
+                                    </StackPanel>
+                                </Flyout>
+                            </Button.Flyout>
                         </Button>
                     </StackPanel>
                 </Grid>
@@ -1125,7 +1219,7 @@
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="{Binding CurrentTimeText}" FontSize="11" Foreground="White"
                                Margin="0,0,8,0" VerticalAlignment="Center"/>
-                    <Slider Grid.Column="1" Minimum="0" Maximum="{Binding PlaybackDuration}"
+                    <Slider RequestedTheme="Dark" Grid.Column="1" Minimum="0" Maximum="{Binding PlaybackDuration}"
                             Value="{Binding PlaybackPosition, Mode=TwoWay}"
                             Foreground="{StaticResource OverlaySliderFillBrush}"
                             Background="{StaticResource OverlaySliderTrackBrush}"/>
@@ -1239,7 +1333,7 @@
                                TextTrimming="CharacterEllipsis"/>
                 </StackPanel>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Slider x:Name="ZoomSlider" Width="120" Minimum="10" Maximum="1000" StepFrequency="1"
+                    <Slider RequestedTheme="Dark" x:Name="ZoomSlider" Width="120" Minimum="10" Maximum="1000" StepFrequency="1"
                             Value="100" VerticalAlignment="Center" Margin="0,0,8,0"
                             ValueChanged="ZoomSlider_ValueChanged"
                             Foreground="{StaticResource OverlaySliderFillBrush}"
