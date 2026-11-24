@@ -65,6 +65,44 @@
         <SolidColorBrush x:Key="OverlaySliderTrackBrush" Color="#55FFFFFF"/>
         <SolidColorBrush x:Key="OverlaySliderThumbBrush" Color="#FFFFFFFF"/>
 
+        <!-- 播放器滑条：自定义模板，悬停不变色 -->
+        <Style x:Key="PlayerSliderStyle" TargetType="Slider">
+            <Setter Property="Background" Value="{StaticResource SliderTrackBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource SliderFillBrush}"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Slider">
+                        <Grid x:Name="RootGrid" Background="Transparent">
+                            <Grid x:Name="HorizontalTemplate">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Rectangle x:Name="HorizontalTrackRect" Grid.ColumnSpan="3"
+                                           Height="4" VerticalAlignment="Center"
+                                           Fill="{TemplateBinding Background}"/>
+                                <Rectangle x:Name="HorizontalDecreaseRect" Grid.Column="0"
+                                           Height="4" VerticalAlignment="Center"
+                                           Fill="{TemplateBinding Foreground}"/>
+                                <Thumb x:Name="HorizontalThumb" Grid.Column="1"
+                                       Width="16" Height="16" VerticalAlignment="Center"
+                                       Background="{StaticResource SliderThumbBrush}">
+                                    <Thumb.Template>
+                                        <ControlTemplate TargetType="Thumb">
+                                            <Ellipse Fill="{TemplateBinding Background}"
+                                                     Stroke="#FFFFFFFF" StrokeThickness="1"/>
+                                        </ControlTemplate>
+                                    </Thumb.Template>
+                                </Thumb>
+                            </Grid>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Slider 模板内部画刷：让 PointerOver / Pressed 与常态同色，避免悬停变黑 -->
         <SolidColorBrush x:Key="SliderThumbBackgroundDisabled" Color="#FFFFFFFF"/>
         <SolidColorBrush x:Key="SliderTrackFill" Color="#66FFFFFF"/>

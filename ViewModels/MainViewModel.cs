@@ -186,7 +186,6 @@ namespace HyperMedia_Lite.ViewModels
 
             BuildNavItems();
             LoadFavorites();
-            SystemMediaControlsService.Current.Initialize();
 
             _playback.StateChanged += OnPlaybackStateChanged;
             _playback.ItemChanged += OnPlaybackItemChanged;

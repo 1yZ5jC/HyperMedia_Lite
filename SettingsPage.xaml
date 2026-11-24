@@ -119,8 +119,22 @@
                 <TextBlock Text="兼容性" FontSize="18" FontWeight="SemiBold"
                            Foreground="{StaticResource TextPrimaryBrush}"/>
                 <Border Background="{StaticResource SurfaceBrush}" Padding="20" Margin="0,10,0,28">
-                    <TextBlock x:Name="CompatibilityText" FontSize="13" TextWrapping="Wrap"
-                               Foreground="{StaticResource TextSecondaryBrush}"/>
+                    <StackPanel>
+                        <TextBlock x:Name="CompatibilityText" FontSize="13" TextWrapping="Wrap"
+                                   Foreground="{StaticResource TextSecondaryBrush}"/>
+                        <ToggleSwitch x:Name="SystemMediaControlsSwitch" Header="系统媒体控制（媒体键 / 锁屏）"
+                                      Margin="0,16,0,0" Toggled="SystemMediaControlsSwitch_Toggled">
+                            <ToggleSwitch.OnContent>
+                                <TextBlock Text="开启"/>
+                            </ToggleSwitch.OnContent>
+                            <ToggleSwitch.OffContent>
+                                <TextBlock Text="关闭"/>
+                            </ToggleSwitch.OffContent>
+                        </ToggleSwitch>
+                        <TextBlock FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   Text="开启后系统会显示媒体控制面板并接管媒体键；若不需要，请保持关闭。"/>
+                    </StackPanel>
                 </Border>
 
                 <!-- 关于 -->

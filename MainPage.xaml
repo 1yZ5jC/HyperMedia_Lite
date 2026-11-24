@@ -170,6 +170,12 @@
                         <Setter Target="ArtistGrid.Padding" Value="4,6,4,12"/>
                         <Setter Target="GenericGrid.Padding" Value="4,6,4,12"/>
                         <Setter Target="ZoomSlider.Width" Value="60"/>
+                        <Setter Target="PhotoTitle.MaxWidth" Value="90"/>
+                        <Setter Target="PhotoRotateBackButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="PhotoRotateButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="PhotoInfoButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="PhotoEditButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="PhotoSlideButton.Visibility" Value="Collapsed"/>
                         <Setter Target="FlipHButton.Visibility" Value="Collapsed"/>
                         <Setter Target="FlipVButton.Visibility" Value="Collapsed"/>
                         <Setter Target="HeaderOverflowButton.Visibility" Value="Visible"/>
@@ -219,6 +225,11 @@
                         <Setter Target="ArtistGrid.Padding" Value="8,8,8,16"/>
                         <Setter Target="GenericGrid.Padding" Value="8,8,8,16"/>
                         <Setter Target="ZoomSlider.Width" Value="80"/>
+                        <Setter Target="PhotoTitle.MaxWidth" Value="140"/>
+                        <Setter Target="PhotoRotateBackButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="PhotoInfoButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="PhotoEditButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="PhotoSlideButton.Visibility" Value="Collapsed"/>
                         <Setter Target="FlipHButton.Visibility" Value="Collapsed"/>
                         <Setter Target="FlipVButton.Visibility" Value="Collapsed"/>
                         <Setter Target="HeaderOverflowButton.Visibility" Value="Visible"/>
@@ -252,6 +263,12 @@
                         <Setter Target="NowPlayingMoreButton.Visibility" Value="Collapsed"/>
                         <Setter Target="WideLyricLayout.Visibility" Value="Visible"/>
                         <Setter Target="NarrowLyricLayout.Visibility" Value="Collapsed"/>
+                        <Setter Target="PhotoTitle.MaxWidth" Value="260"/>
+                        <Setter Target="PhotoRotateBackButton.Visibility" Value="Visible"/>
+                        <Setter Target="PhotoRotateButton.Visibility" Value="Visible"/>
+                        <Setter Target="PhotoInfoButton.Visibility" Value="Visible"/>
+                        <Setter Target="PhotoEditButton.Visibility" Value="Visible"/>
+                        <Setter Target="PhotoSlideButton.Visibility" Value="Visible"/>
                     </VisualState.Setters>
                 </VisualState>
                 <VisualState x:Name="WideLayout">
@@ -268,6 +285,12 @@
                         <Setter Target="NowPlayingMoreButton.Visibility" Value="Collapsed"/>
                         <Setter Target="WideLyricLayout.Visibility" Value="Visible"/>
                         <Setter Target="NarrowLyricLayout.Visibility" Value="Collapsed"/>
+                        <Setter Target="PhotoTitle.MaxWidth" Value="260"/>
+                        <Setter Target="PhotoRotateBackButton.Visibility" Value="Visible"/>
+                        <Setter Target="PhotoRotateButton.Visibility" Value="Visible"/>
+                        <Setter Target="PhotoInfoButton.Visibility" Value="Visible"/>
+                        <Setter Target="PhotoEditButton.Visibility" Value="Visible"/>
+                        <Setter Target="PhotoSlideButton.Visibility" Value="Visible"/>
                     </VisualState.Setters>
                 </VisualState>
             </VisualStateGroup>
@@ -767,7 +790,7 @@
                                 </StackPanel>
                             </Button>
                             <FontIcon Glyph="&#xE767;" FontFamily="Segoe MDL2 Assets" FontSize="18" Foreground="White"/>
-                            <Slider RequestedTheme="Dark" x:Name="VolumeSlider" Width="120" Minimum="0" Maximum="100" Margin="12,0,0,0"
+                            <Slider RequestedTheme="Dark" Style="{StaticResource PlayerSliderStyle}" x:Name="VolumeSlider" Width="120" Minimum="0" Maximum="100" Margin="12,0,0,0"
                                     Value="{Binding Volume, Mode=TwoWay}" VerticalAlignment="Center"
                                     Foreground="{StaticResource SliderFillBrush}" Background="{StaticResource SliderTrackBrush}"/>
                             <Button x:Name="LyricsButton" Style="{StaticResource PlaybackIconButtonStyle}" Width="32" Margin="14,0,0,0"
@@ -812,7 +835,7 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="{Binding CurrentTimeText}" FontSize="11"
                                    Foreground="White" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                        <Slider RequestedTheme="Dark" Grid.Column="1" Minimum="0" Maximum="{Binding PlaybackDuration}"
+                        <Slider RequestedTheme="Dark" Style="{StaticResource PlayerSliderStyle}" Grid.Column="1" Minimum="0" Maximum="{Binding PlaybackDuration}"
                                 Value="{Binding PlaybackPosition, Mode=TwoWay}" VerticalAlignment="Center"
                                 Foreground="{StaticResource SliderFillBrush}" Background="{StaticResource SliderTrackBrush}"/>
                         <TextBlock Grid.Column="2" Text="{Binding TotalTimeText}" FontSize="11"
@@ -1150,7 +1173,7 @@
                                     </Flyout.FlyoutPresenterStyle>
                                     <StackPanel Width="200" Padding="12">
                                         <TextBlock Text="音量" FontSize="12" Foreground="#CCFFFFFF"/>
-                                        <Slider RequestedTheme="Dark" Minimum="0" Maximum="100" Margin="0,10,0,0"
+                                        <Slider RequestedTheme="Dark" Style="{StaticResource PlayerSliderStyle}" Minimum="0" Maximum="100" Margin="0,10,0,0"
                                                 Value="{Binding Volume, Mode=TwoWay}"
                                                 Foreground="{StaticResource OverlaySliderFillBrush}"
                                                 Background="{StaticResource OverlaySliderTrackBrush}"
@@ -1219,7 +1242,7 @@
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="{Binding CurrentTimeText}" FontSize="11" Foreground="White"
                                Margin="0,0,8,0" VerticalAlignment="Center"/>
-                    <Slider RequestedTheme="Dark" Grid.Column="1" Minimum="0" Maximum="{Binding PlaybackDuration}"
+                    <Slider RequestedTheme="Dark" Style="{StaticResource PlayerSliderStyle}" Grid.Column="1" Minimum="0" Maximum="{Binding PlaybackDuration}"
                             Value="{Binding PlaybackPosition, Mode=TwoWay}"
                             Foreground="{StaticResource OverlaySliderFillBrush}"
                             Background="{StaticResource OverlaySliderTrackBrush}"/>
@@ -1321,35 +1344,34 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Width="40" Height="34" Padding="0"
-                            Style="{StaticResource OverlayIconButtonStyle}"
-                            ToolTipService.ToolTip="返回 (Esc)"
-                            Click="ClosePhoto_Click" AutomationProperties.Name="关闭图片">
-                        <FontIcon Glyph="&#xE72B;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="White"/>
-                    </Button>
-                    <TextBlock x:Name="PhotoTitle" FontSize="13" Foreground="#CCFFFFFF"
-                               MaxWidth="260" Margin="12,0,0,0" VerticalAlignment="Center"
-                               TextTrimming="CharacterEllipsis"/>
-                </StackPanel>
+                <Button Grid.Column="0" Width="40" Height="34" Padding="0"
+                        Style="{StaticResource OverlayIconButtonStyle}"
+                        ToolTipService.ToolTip="返回 (Esc)"
+                        Click="ClosePhoto_Click" AutomationProperties.Name="关闭图片">
+                    <FontIcon Glyph="&#xE72B;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="White"/>
+                </Button>
+                <TextBlock x:Name="PhotoTitle" Grid.Column="1" FontSize="13" Foreground="#CCFFFFFF"
+                           MaxWidth="260" Margin="12,0,8,0" VerticalAlignment="Center"
+                           HorizontalAlignment="Left" TextTrimming="CharacterEllipsis"
+                           TextWrapping="NoWrap"/>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Slider RequestedTheme="Dark" x:Name="ZoomSlider" Width="120" Minimum="10" Maximum="1000" StepFrequency="1"
+                    <Slider RequestedTheme="Dark" Style="{StaticResource PlayerSliderStyle}" x:Name="ZoomSlider" Width="120" Minimum="10" Maximum="1000" StepFrequency="1"
                             Value="100" VerticalAlignment="Center" Margin="0,0,8,0"
                             ValueChanged="ZoomSlider_ValueChanged"
                             Foreground="{StaticResource OverlaySliderFillBrush}"
                             Background="{StaticResource OverlaySliderTrackBrush}"
                             AutomationProperties.Name="缩放"/>
-                    <Button Style="{StaticResource OverlayIconButtonStyle}" Margin="0,0,4,0"
+                    <Button x:Name="PhotoFitButton" Style="{StaticResource OverlayIconButtonStyle}" Margin="0,0,4,0"
                             ToolTipService.ToolTip="适应窗口 (0)"
                             Click="Fit_Click" AutomationProperties.Name="适应窗口">
                         <FontIcon Glyph="&#xE740;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
                     </Button>
-                    <Button Style="{StaticResource OverlayIconButtonStyle}" Margin="0,0,4,0"
+                    <Button x:Name="PhotoRotateBackButton" Style="{StaticResource OverlayIconButtonStyle}" Margin="0,0,4,0"
                             ToolTipService.ToolTip="逆时针旋转"
                             Click="RotateBack_Click" AutomationProperties.Name="逆时针旋转">
                         <FontIcon Glyph="&#xE7AD;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
                     </Button>
-                    <Button Style="{StaticResource OverlayIconButtonStyle}" Margin="0,0,4,0"
+                    <Button x:Name="PhotoRotateButton" Style="{StaticResource OverlayIconButtonStyle}" Margin="0,0,4,0"
                             ToolTipService.ToolTip="顺时针旋转 (R)"
                             Click="Rotate_Click" AutomationProperties.Name="顺时针旋转">
                         <FontIcon Glyph="&#xE7AD;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
@@ -1364,17 +1386,17 @@
                             Click="FlipV_Click" AutomationProperties.Name="垂直翻转">
                         <TextBlock Text="↕" FontSize="16" Foreground="White"/>
                     </Button>
-                    <Button Style="{StaticResource OverlayIconButtonStyle}" Margin="0,0,4,0"
+                    <Button x:Name="PhotoInfoButton" Style="{StaticResource OverlayIconButtonStyle}" Margin="0,0,4,0"
                             ToolTipService.ToolTip="图片信息 (I)"
                             Click="Info_Click" AutomationProperties.Name="图片信息">
                         <FontIcon Glyph="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
                     </Button>
-                    <Button Style="{StaticResource OverlayIconButtonStyle}" Margin="0,0,4,0"
+                    <Button x:Name="PhotoEditButton" Style="{StaticResource OverlayIconButtonStyle}" Margin="0,0,4,0"
                             ToolTipService.ToolTip="编辑图片"
                             Click="Edit_Click" AutomationProperties.Name="编辑图片">
                         <FontIcon Glyph="&#xE70F;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
                     </Button>
-                    <Button Style="{StaticResource OverlayIconButtonStyle}"
+                    <Button x:Name="PhotoSlideButton" Style="{StaticResource OverlayIconButtonStyle}"
                             ToolTipService.ToolTip="幻灯片 (空格)"
                             Click="SlideShow_Click" AutomationProperties.Name="幻灯片">
                         <FontIcon Glyph="&#xE786;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>

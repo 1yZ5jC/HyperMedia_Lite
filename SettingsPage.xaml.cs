@@ -21,6 +21,8 @@ namespace HyperMedia_Lite
             InitializeComponent();
             DataContext = _viewModel;
 
+            SystemMediaControlsSwitch.IsOn = SystemMediaControlsService.IsEnabledByUser;
+
             CompatibilityText.Text = UwpCompat.HasModernPlayback
                 ? "当前系统支持应用内视频播放（MediaPlayerElement / 播放会话）。"
                 : "当前为 Windows 10 10240：已启用兼容模式，音频与视频均可应用内播放（视频使用经典 MediaElement 后端）。";
@@ -60,6 +62,15 @@ namespace HyperMedia_Lite
                     Convert.ToByte(hex.Substring(4, 2), 16),
                     Convert.ToByte(hex.Substring(6, 2), 16));
                 ThemeService.SetAccent(color);
+            }
+        }
+
+        private async void SystemMediaControlsSwitch_Toggled(object sender, RoutedEventArgs e)
+        {
+            SystemMediaControlsService.IsEnabledByUser = SystemMediaControlsSwitch.IsOn;
+            if (!SystemMediaControlsSwitch.IsOn)
+            {
+                await SystemMediaControlsService.Current.UpdateAsync(null, false);
             }
         }
 

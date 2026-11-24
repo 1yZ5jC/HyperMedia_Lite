@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using HyperMedia_Lite.Models;
 using Windows.Media;
+using Windows.Storage;
 using Windows.Storage.FileProperties;
 using Windows.Storage.Streams;
 
@@ -16,7 +17,30 @@ namespace HyperMedia_Lite.Services
         private static readonly Lazy<SystemMediaControlsService> LazyInstance =
             new Lazy<SystemMediaControlsService>(() => new SystemMediaControlsService());
 
+        private const string EnabledKey = "SystemMediaControlsEnabled";
+
         public static SystemMediaControlsService Current => LazyInstance.Value;
+
+        public static bool IsEnabledByUser
+        {
+            get
+            {
+                try
+                {
+                    if (!ApplicationData.Current.LocalSettings.Values.TryGetValue(EnabledKey, out object v))
+                    {
+                        return true; // 默认开启，但只在有曲目时激活
+                    }
+                    return v is bool b && b;
+                }
+                catch { return false; }
+            }
+            set
+            {
+                try { ApplicationData.Current.LocalSettings.Values[EnabledKey] = value; }
+                catch { }
+            }
+        }
 
         private readonly SystemMediaTransportControls _controls;
         private readonly PlaybackService _playback = PlaybackService.Current;
@@ -37,7 +61,7 @@ namespace HyperMedia_Lite.Services
         /// <summary>在 UI 线程调用一次，启用按钮并接管媒体键。</summary>
         public void Initialize()
         {
-            if (_initialized || _controls == null)
+            if (!IsEnabledByUser || _initialized || _controls == null)
             {
                 return;
             }
@@ -88,20 +112,33 @@ namespace HyperMedia_Lite.Services
         /// <summary>更新曲名、艺人、专辑与封面缩略图。</summary>
         public async Task UpdateAsync(MediaItem item, bool isPlaying)
         {
-            if (_controls == null)
+            if (!IsEnabledByUser || _controls == null)
             {
                 return;
             }
 
             try
             {
-                var updater = _controls.DisplayUpdater;
+                // 没有曲目时彻底关闭控制器，系统不会弹出媒体控制面板。
                 if (item == null || item.File == null)
                 {
-                    updater.ClearAll();
-                    _controls.PlaybackStatus = MediaPlaybackStatus.Stopped;
+                    if (_initialized)
+                    {
+                        _controls.DisplayUpdater.ClearAll();
+                        _controls.PlaybackStatus = MediaPlaybackStatus.Stopped;
+                        _controls.IsEnabled = false;
+                    }
                     return;
                 }
+
+                // 只有真正开始播放才初始化并启用 SMTC。
+                Initialize();
+                if (!_controls.IsEnabled)
+                {
+                    _controls.IsEnabled = true;
+                }
+
+                var updater = _controls.DisplayUpdater;
 
                 updater.Type = item.Kind == MediaKind.Video
                     ? MediaPlaybackType.Video : MediaPlaybackType.Music;
@@ -142,7 +179,7 @@ namespace HyperMedia_Lite.Services
 
         public void UpdateStatus(bool isPlaying)
         {
-            if (_controls == null)
+            if (!IsEnabledByUser || _controls == null || !_controls.IsEnabled)
             {
                 return;
             }
