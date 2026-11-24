@@ -18,6 +18,7 @@
         <helpers:BoolToFontSizeConverter x:Key="BoolToFontSizeConverter"/>
         <helpers:BoolToFontWeightConverter x:Key="BoolToFontWeightConverter"/>
         <helpers:BoolToLyricBrushConverter x:Key="BoolToLyricBrushConverter"/>
+        <helpers:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
         <helpers:TextToVisibilityConverter x:Key="TextToVisibility"/>
 
         <Style x:Key="NavItemStyle" TargetType="ListViewItem">
@@ -928,10 +929,10 @@
                 <!-- 宽窗：封面与歌词成对居中靠拢 -->
                 <Grid x:Name="WideLyricLayout">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*" MaxWidth="100" MinWidth="0"/>
                         <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*" MinWidth="0"/>
+                        <ColumnDefinition Width="*" MaxWidth="100" MinWidth="0"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel x:Name="NowPlayingArt" Grid.Column="1" VerticalAlignment="Center"
                                 Margin="0,0,48,0" MaxWidth="320">
@@ -951,7 +952,7 @@
                         <TextBlock x:Name="NowPlayingSubtitle" Text="{Binding TrackSubtitle}" FontSize="13"
                                    Foreground="#CCFFFFFF" HorizontalAlignment="Center" Margin="0,5,0,0"/>
                     </StackPanel>
-                    <Grid Grid.Column="2" MaxWidth="520" MinWidth="0"
+                    <Grid Grid.Column="2" MaxWidth="600" MinWidth="0"
                           HorizontalAlignment="Stretch" VerticalAlignment="Center">
                         <ListView x:Name="WideLyricList" ItemsSource="{Binding Lyrics}"
                                   SelectionMode="None" IsItemClickEnabled="True"
@@ -961,12 +962,32 @@
                                   Background="Transparent" MaxHeight="440">
                             <ListView.ItemTemplate>
                                 <DataTemplate>
-                                    <TextBlock x:Name="LyricText" Text="{Binding Text}"
-                                               FontSize="{Binding IsCurrent, Converter={StaticResource BoolToFontSizeConverter}, ConverterParameter=40|22}"
-                                               FontWeight="{Binding IsCurrent, Converter={StaticResource BoolToFontWeightConverter}}"
-                                               Foreground="{Binding IsCurrent, Converter={StaticResource BoolToLyricBrushConverter}}"
-                                               TextAlignment="Center" TextWrapping="Wrap"
-                                               Margin="0,10" HorizontalAlignment="Center"/>
+                                    <Grid Margin="0,10" HorizontalAlignment="Center">
+                                        <TextBlock x:Name="LyricText" Text="{Binding Text}"
+                                                   FontSize="{Binding IsCurrent, Converter={StaticResource BoolToFontSizeConverter}, ConverterParameter=40|22}"
+                                                   FontWeight="{Binding IsCurrent, Converter={StaticResource BoolToFontWeightConverter}}"
+                                                   Foreground="{Binding IsCurrent, Converter={StaticResource BoolToLyricBrushConverter}}"
+                                                   TextAlignment="Center" TextWrapping="Wrap"
+                                                   Visibility="{Binding Words, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=Invert}"/>
+                                        <ItemsControl ItemsSource="{Binding Words}"
+                                                      Visibility="{Binding Words, Converter={StaticResource NullToVisibilityConverter}}"
+                                                      HorizontalAlignment="Center">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <controls:WordWrapPanel/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Text}"
+                                                               FontSize="{Binding IsLineCurrent, Converter={StaticResource BoolToFontSizeConverter}, ConverterParameter=40|22}"
+                                                               FontWeight="{Binding IsLineCurrent, Converter={StaticResource BoolToFontWeightConverter}}"
+                                                               Foreground="{Binding IsSung, Converter={StaticResource BoolToLyricBrushConverter}}"
+                                                               TextWrapping="Wrap"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </Grid>
                                 </DataTemplate>
                             </ListView.ItemTemplate>
                         </ListView>
@@ -1009,11 +1030,32 @@
                                   Background="Transparent">
                             <ListView.ItemTemplate>
                                 <DataTemplate>
-                                    <TextBlock x:Name="LyricText" Text="{Binding Text}"
-                                               FontSize="{Binding IsCurrent, Converter={StaticResource BoolToFontSizeConverter}, ConverterParameter=28|18}"
-                                               FontWeight="{Binding IsCurrent, Converter={StaticResource BoolToFontWeightConverter}}"
-                                               Foreground="{Binding IsCurrent, Converter={StaticResource BoolToLyricBrushConverter}}"
-                                               TextAlignment="Left" TextWrapping="Wrap" Margin="0,8"/>
+                                    <Grid Margin="0,8">
+                                        <TextBlock x:Name="LyricText" Text="{Binding Text}"
+                                                   FontSize="{Binding IsCurrent, Converter={StaticResource BoolToFontSizeConverter}, ConverterParameter=28|18}"
+                                                   FontWeight="{Binding IsCurrent, Converter={StaticResource BoolToFontWeightConverter}}"
+                                                   Foreground="{Binding IsCurrent, Converter={StaticResource BoolToLyricBrushConverter}}"
+                                                   TextAlignment="Left" TextWrapping="Wrap"
+                                                   Visibility="{Binding Words, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=Invert}"/>
+                                        <ItemsControl ItemsSource="{Binding Words}"
+                                                      Visibility="{Binding Words, Converter={StaticResource NullToVisibilityConverter}}"
+                                                      HorizontalAlignment="Left">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <controls:WordWrapPanel/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Text}"
+                                                               FontSize="{Binding IsLineCurrent, Converter={StaticResource BoolToFontSizeConverter}, ConverterParameter=28|18}"
+                                                               FontWeight="{Binding IsLineCurrent, Converter={StaticResource BoolToFontWeightConverter}}"
+                                                               Foreground="{Binding IsSung, Converter={StaticResource BoolToLyricBrushConverter}}"
+                                                               TextWrapping="Wrap"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </Grid>
                                 </DataTemplate>
                             </ListView.ItemTemplate>
                         </ListView>

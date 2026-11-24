@@ -27,11 +27,25 @@ namespace HyperMedia_Lite
         }
     }
 
-    public sealed class LyricWord
+    public sealed class LyricWord : HyperMedia_Lite.Helpers.BindableBase
     {
         public double StartSeconds { get; set; }
         public double EndSeconds { get; set; }
         public string Text { get; set; }
+
+        private bool _isSung;
+        public bool IsSung
+        {
+            get => _isSung;
+            set => SetProperty(ref _isSung, value);
+        }
+
+        private bool _isLineCurrent;
+        public bool IsLineCurrent
+        {
+            get => _isLineCurrent;
+            set => SetProperty(ref _isLineCurrent, value);
+        }
     }
 
     public enum LyricFormat { Unknown, Lrc, Krc, Qrc }
@@ -55,6 +69,13 @@ namespace HyperMedia_Lite
         private static readonly Regex RgxWordTag =
             new Regex(@"<\s*\d+:\d+(?:\.\d+)?\s*[,:]\s*\d+:\d+(?:\.\d+)?\s*>", RegexOptions.Compiled);
 
+        // QRC 单时间戳内联格式：<00:12.78>文字
+        private static readonly Regex RgxSingleTimeTag =
+            new Regex(@"<\s*\d{1,3}:\d{1,2}(?:\.\d{1,3})?\s*>", RegexOptions.Compiled);
+
+        private static readonly Regex RgxSingleTimeToken =
+            new Regex(@"(?<tag><\s*\d{1,3}:\d{1,2}(?:\.\d{1,3})?\s*>)?(?<text>[^<]*)", RegexOptions.Compiled);
+
         private static readonly byte[] KrcKey =
         {
             64,71,70,76,77,66,75,69,50,48,52,49,53,59,57,55,
@@ -68,7 +89,7 @@ namespace HyperMedia_Lite
             if (string.IsNullOrEmpty(text)) return LyricFormat.Unknown;
             string t = text.TrimStart('\uFEFF');
             if (RgxKrcLine.IsMatch(t)) return LyricFormat.Krc;
-            if (RgxWordTag.IsMatch(t)) return LyricFormat.Qrc;
+            if (RgxWordTag.IsMatch(t) || RgxSingleTimeTag.IsMatch(t)) return LyricFormat.Qrc;
             return LyricFormat.Lrc;
         }
 
@@ -142,7 +163,7 @@ namespace HyperMedia_Lite
                 double wordStart = startMs;
                 foreach (Match m in Regex.Matches(content, @"([^<]+)(?:<(\d+(?:\.\d+)?)>)?"))
                 {
-                    string word = m.Groups[1].Value;
+                    string word = m.Groups[1].Value.Trim();
                     if (word.Length == 0) continue;
                     double dur = 0;
                     if (m.Groups[2].Success)
@@ -193,6 +214,79 @@ namespace HyperMedia_Lite
                 if (lineMs < 0) continue;
                 string content = line.Substring(close + 1);
 
+                // 混合格式：[mm:ss.xx] 为行标记，行内 <mm:ss.xx> 为字级时间。
+                // 先按行标记切分，再逐行解析字块，避免把整段当成一行并残留标签文本。
+                if (RgxSingleTimeTag.IsMatch(content))
+                {
+                    var segments = Regex.Split(line, @"(?=\[\d{1,3}:\d{1,2}(?:[.:]\d{1,3})?\])");
+                    foreach (string segment in segments)
+                    {
+                        if (string.IsNullOrWhiteSpace(segment)) continue;
+
+                        int lineOpen = segment.IndexOf('[');
+                        int lineClose = segment.IndexOf(']', lineOpen + 1);
+                        if (lineOpen < 0 || lineClose < 0) continue;
+
+                        double segmentMs = ParseLrcTimestamp(
+                            segment.Substring(lineOpen + 1, lineClose - lineOpen - 1));
+                        if (segmentMs < 0) continue;
+
+                        string segmentContent = segment.Substring(lineClose + 1);
+                        var tokens = RgxSingleTimeToken.Matches(segmentContent);
+                        var segmentWords = new List<LyricWord>();
+                        var segmentPlain = new StringBuilder();
+
+                        for (int i = 0; i < tokens.Count; i++)
+                        {
+                            // 去掉残留的 [mm:ss.xx] 行标记与首尾空白
+                            string token = TimestampRegex.Replace(
+                                tokens[i].Groups["text"].Value, "").Trim();
+                            if (token.Length == 0) continue;
+
+                            double startMs = segmentMs;
+                            if (tokens[i].Groups["tag"].Success)
+                            {
+                                double parsed = ParseLrcTimestamp(
+                                    tokens[i].Groups["tag"].Value.Trim('<', '>', ' '));
+                                if (parsed >= 0) startMs = parsed;
+                            }
+
+                            double endMs = startMs + 1000;
+                            for (int j = i + 1; j < tokens.Count; j++)
+                            {
+                                if (!tokens[j].Groups["tag"].Success) continue;
+                                double next = ParseLrcTimestamp(
+                                    tokens[j].Groups["tag"].Value.Trim('<', '>', ' '));
+                                if (next >= startMs)
+                                {
+                                    endMs = next;
+                                    break;
+                                }
+                            }
+
+                            segmentWords.Add(new LyricWord
+                            {
+                                StartSeconds = Math.Max(0, (startMs + offset) / 1000.0),
+                                EndSeconds = Math.Max(0, (endMs + offset) / 1000.0),
+                                Text = token
+                            });
+                            segmentPlain.Append(token);
+                        }
+
+                        string segmentText = segmentPlain.ToString().Trim();
+                        if (segmentText.Length == 0) continue;
+
+                        result.Add(new LyricLine
+                        {
+                            TimeSeconds = segmentWords.Count > 0
+                                ? segmentWords[0].StartSeconds : (segmentMs + offset) / 1000.0,
+                            Text = segmentText,
+                            Words = segmentWords.Count > 0 ? segmentWords : null
+                        });
+                    }
+                    continue;
+                }
+
                 var tag = RgxWordTag.Match(content);
                 if (tag.Success && TryParseWordTag(tag.Value, out double ws, out double we)) lineMs = ws;
                 if (lineMs >= 0) lineMs += offset;
@@ -203,7 +297,7 @@ namespace HyperMedia_Lite
                 var words = new List<LyricWord>();
                 foreach (Match m in Regex.Matches(content, @"(" + RgxWordTag + @")([^<]*)"))
                 {
-                    string word = m.Groups[2].Value;
+                    string word = m.Groups[2].Value.Trim();
                     if (word.Length == 0) continue;
                     if (!TryParseWordTag(m.Groups[1].Value, out double wstart, out double wend)) continue;
                     words.Add(new LyricWord

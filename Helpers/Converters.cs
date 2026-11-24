@@ -63,6 +63,22 @@ namespace HyperMedia_Lite.Helpers
         }
     }
 
+    /// <summary>null -> Collapsed，非 null -> Visible（参数 Invert 可反转）。</summary>
+    public sealed class NullToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            bool visible = value != null;
+            if (parameter is string p && p == "Invert") visible = !visible;
+            return visible ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
     /// <summary>当前歌词行 = 大字号，其余 = 基础字号（参数格式："大|小"）。</summary>
     public sealed class BoolToFontSizeConverter : IValueConverter
     {

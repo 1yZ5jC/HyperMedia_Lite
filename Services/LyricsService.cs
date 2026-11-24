@@ -5,6 +5,7 @@ using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text;
 using System.Threading.Tasks;
+using HyperMedia_Lite.Helpers;
 using HyperMedia_Lite.Models;
 using Windows.Storage;
 
@@ -21,6 +22,43 @@ namespace HyperMedia_Lite
         /// <summary>由页面设置：返回用户选中的候选，返回 null 表示取消。</summary>
         public static Func<List<LyricCandidate>, Task<LyricCandidate>> CandidatePicker { get; set; }
 
+        private static string Snippet(string text, int max = 1500)
+        {
+            if (string.IsNullOrEmpty(text)) return "<empty>";
+            string normalized = text.Replace("\r\n", "\\n").Replace("\r", "\\n").Replace("\n", "\\n");
+            return normalized.Length <= max ? normalized : normalized.Substring(0, max) + "...<truncated>";
+        }
+
+        private static string DecodeForLog(byte[] bytes)
+        {
+            foreach (var encoding in new Encoding[]
+            {
+                new UTF8Encoding(true, false), Encoding.Unicode, Encoding.BigEndianUnicode
+            })
+            {
+                try { return encoding.GetString(bytes).TrimStart('\uFEFF'); }
+                catch { }
+            }
+            return "<binary>";
+        }
+
+        private static void LogParsed(string source, string raw, List<LyricLine> lines)
+        {
+            if (!DebugLog.Enabled) return;
+
+            DebugLog.Write("LYRIC", $"=== {source} ===");
+            DebugLog.Write("LYRIC", $"format={LyricsParser.DetectFormat(raw)}, raw={Snippet(raw)}");
+            DebugLog.Write("LYRIC", $"parsed lines={lines.Count}");
+            for (int i = 0; i < lines.Count; i++)
+            {
+                var line = lines[i];
+                string wordInfo = line.Words == null || line.Words.Count == 0
+                    ? "no-word-times"
+                    : $"words={line.Words.Count} first={line.Words[0].StartSeconds:0.00}s last={line.Words[line.Words.Count - 1].StartSeconds:0.00}s";
+                DebugLog.Write("LYRIC", $"  [{i:000}] t={line.TimeSeconds:0.00}s {wordInfo} text=\"{Snippet(line.Text, 300)}\"");
+            }
+        }
+
         public static async Task<List<LyricLine>> LoadAsync(MediaItem item)
         {
             if (item?.File == null) return new List<LyricLine>();
@@ -29,7 +67,9 @@ namespace HyperMedia_Lite
             string embedded = await LyricsParser.TryExtractEmbeddedAsync(item.File);
             if (!string.IsNullOrEmpty(embedded))
             {
+                DebugLog.Write("LYRIC", $"embedded lyric found, chars={embedded.Length}");
                 var lines = LyricsParser.Parse(embedded);
+                LogParsed("embedded", embedded, lines);
                 if (lines.Count > 0) return lines;
             }
 
@@ -44,7 +84,9 @@ namespace HyperMedia_Lite
                     {
                         var file = await folder.GetFileAsync(baseName + ext);
                         var bytes = await ReadAllBytesAsync(file);
+                        DebugLog.Write("LYRIC", $"local file={file.Name}, bytes={bytes.Length}");
                         var lines = ParseBytes(bytes);
+                        LogParsed("local:" + file.Name, DecodeForLog(bytes), lines);
                         if (lines.Count > 0) return lines;
                     }
                     catch (FileNotFoundException) { }
@@ -55,15 +97,22 @@ namespace HyperMedia_Lite
 
             // 3) 缓存
             var cached = await ReadCacheAsync(item);
-            if (cached != null && cached.Count > 0) return cached;
+            if (cached != null && cached.Count > 0)
+            {
+                DebugLog.Write("LYRIC", $"cache hit, lines={cached.Count}");
+                return cached;
+            }
 
             // 4) 在线
             var online = await LoadOnlineAsync(item);
             if (online != null && online.Count > 0)
             {
+                DebugLog.Write("LYRIC", $"online hit, lines={online.Count}");
                 await WriteCacheAsync(item, online);
                 return online;
             }
+
+            DebugLog.Write("LYRIC", "no lyric found from any source");
             return new List<LyricLine>();
         }
 
@@ -72,7 +121,10 @@ namespace HyperMedia_Lite
             if (bytes == null || bytes.Length == 0) return new List<LyricLine>();
 
             if (LyricsParser.TryDecryptKrc(bytes, out string krc))
+            {
+                DebugLog.Write("LYRIC", "KRC decrypted");
                 return LyricsParser.Parse(krc, LyricFormat.Krc);
+            }
 
             var encodings = new List<Encoding> { new UTF8Encoding(true, false), Encoding.Unicode, Encoding.BigEndianUnicode };
             try { encodings.Add(Encoding.GetEncoding("GB2312")); } catch { }
@@ -83,7 +135,11 @@ namespace HyperMedia_Lite
                 {
                     string text = encoding.GetString(bytes).TrimStart('\uFEFF');
                     var lines = LyricsParser.Parse(text);
-                    if (lines.Count > 0) return lines;
+                    if (lines.Count > 0)
+                    {
+                        DebugLog.Write("LYRIC", $"decoded with {encoding.WebName}, lines={lines.Count}");
+                        return lines;
+                    }
                 }
                 catch { }
             }

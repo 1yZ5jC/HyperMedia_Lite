@@ -849,12 +849,22 @@ namespace HyperMedia_Lite.ViewModels
                         : "no active line"));
                 if (_lyricIndex >= 0 && _lyricIndex < _lyrics.Count)
                 {
-                    _lyrics[_lyricIndex].IsCurrent = false;
+                    var previous = _lyrics[_lyricIndex];
+                    previous.IsCurrent = false;
+                    if (previous.Words != null)
+                    {
+                        foreach (var w in previous.Words) w.IsLineCurrent = false;
+                    }
                 }
                 _lyricIndex = lyricIndex;
                 if (_lyricIndex >= 0 && _lyricIndex < _lyrics.Count)
                 {
-                    _lyrics[_lyricIndex].IsCurrent = true;
+                    var current = _lyrics[_lyricIndex];
+                    current.IsCurrent = true;
+                    if (current.Words != null)
+                    {
+                        foreach (var w in current.Words) w.IsLineCurrent = true;
+                    }
                 }
                 OnPropertyChanged(nameof(CurrentLyricText));
                 OnPropertyChanged(nameof(CurrentLyricStartTime));
@@ -899,13 +909,34 @@ namespace HyperMedia_Lite.ViewModels
             {
                 return;
             }
+
             var line = _lyrics[_lyricIndex];
-            if (line.Words == null || line.Words.Count == 0 || !IsPlaying)
+            if (line.Words == null || line.Words.Count == 0)
             {
                 return;
             }
-            // 逐字进度由页面根据 CurrentLyricText 与 Words 自行渲染；这里仅通知刷新。
-            OnPropertyChanged(nameof(LyricWords));
+
+            // 未到本行开始时间时不点亮任何字。
+            if (position < line.TimeSeconds)
+            {
+                foreach (var word in line.Words)
+                {
+                    if (word.IsSung) word.IsSung = false;
+                }
+                return;
+            }
+
+            // 兼容绝对时间与相对行首的字级时间。
+            bool relative = line.Words[0].StartSeconds < line.TimeSeconds - 0.01;
+            foreach (var word in line.Words)
+            {
+                double start = relative ? line.TimeSeconds + word.StartSeconds : word.StartSeconds;
+                bool sung = position + 0.05 >= start;
+                if (word.IsSung != sung)
+                {
+                    word.IsSung = sung;
+                }
+            }
         }
 
         #region 界面绑定属性

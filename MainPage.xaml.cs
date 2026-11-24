@@ -439,10 +439,7 @@ namespace HyperMedia_Lite
             {
                 UpdateLyricHighlight();
             }
-            else if (e.PropertyName == "PlaybackPosition")
-            {
-                UpdateWordHighlight();
-            }
+            // 逐字点亮由 LyricWord.IsSung 通过绑定驱动，不在此处操作 Inlines。
         }
 
         private void OnWindowSizeChanged(object sender, Windows.UI.Core.WindowSizeChangedEventArgs e)
@@ -480,7 +477,6 @@ namespace HyperMedia_Lite
                     list.ScrollIntoView(list.Items[index]);
                 }
 
-                UpdateWordHighlight();
                 if (FullLyricPanel.Visibility == Visibility.Visible)
                 {
                     ScrollFullLyricToCurrent();
