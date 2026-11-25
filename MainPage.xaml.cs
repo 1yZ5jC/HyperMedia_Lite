@@ -55,6 +55,9 @@ namespace HyperMedia_Lite
             HyperMedia_Lite.Helpers.DebugLog.WriteStartupStep("MainPage after MainViewModel");
             DataContext = _viewModel;
 
+            // 把在线歌词候选选择页接到加载管线。
+            LyricsService.CandidatePicker = candidates => LyricPickerService.PickAsync(candidates);
+
             // 14393+：动态创建 MediaPlayerElement 并绑定同一个 MediaPlayer；10240 上不存在该类型。
             HyperMedia_Lite.Helpers.DebugLog.WriteStartupStep("MainPage before SetupVideoSurface");
             SetupVideoSurface();

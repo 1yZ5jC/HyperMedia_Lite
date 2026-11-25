@@ -137,6 +137,9 @@
     <Compile Include="LyricsOverlayPage.xaml.cs">
       <DependentUpon>LyricsOverlayPage.xaml</DependentUpon>
     </Compile>
+    <Compile Include="LyricPickerPage.xaml.cs">
+      <DependentUpon>LyricPickerPage.xaml</DependentUpon>
+    </Compile>
     <Compile Include="MainPage.xaml.cs">
       <DependentUpon>MainPage.xaml</DependentUpon>
     </Compile>
@@ -164,6 +167,7 @@
     <Compile Include="Services\LegacyVideoBackend.cs" />
     <Compile Include="Services\LyricsParser.cs" />
     <Compile Include="Services\LyricsService.cs" />
+    <Compile Include="Services\LyricPickerService.cs" />
     <Compile Include="Services\OnlineLyrics.cs" />
     <Compile Include="Services\SubtitleParser.cs" />
     <Compile Include="Services\SubtitleService.cs" />
@@ -249,6 +253,10 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="LyricsOverlayPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="LyricPickerPage.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>

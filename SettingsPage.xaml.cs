@@ -36,6 +36,25 @@ namespace HyperMedia_Lite
                     break;
                 }
             }
+
+            string accentSaved = ThemeService.CurrentAccentSource.ToString();
+            foreach (var item in AccentSourceCombo.Items)
+            {
+                if (item is ComboBoxItem comboItem && comboItem.Tag is string tag && tag == accentSaved)
+                {
+                    AccentSourceCombo.SelectedItem = comboItem;
+                    break;
+                }
+            }
+        }
+
+        private void AccentSourceCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (AccentSourceCombo.SelectedItem is ComboBoxItem item && item.Tag is string tag
+                && Enum.TryParse(tag, out AccentSource source))
+            {
+                ThemeService.SetAccentSource(source);
+            }
         }
 
         private void ThemeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -47,9 +66,23 @@ namespace HyperMedia_Lite
             }
         }
 
+        private void SyncAccentSourceCombo()
+        {
+            string source = ThemeService.CurrentAccentSource.ToString();
+            foreach (var item in AccentSourceCombo.Items)
+            {
+                if (item is ComboBoxItem comboItem && comboItem.Tag is string tag && tag == source)
+                {
+                    AccentSourceCombo.SelectedItem = comboItem;
+                    break;
+                }
+            }
+        }
+
         private void AccentDefault_Click(object sender, RoutedEventArgs e)
         {
             ThemeService.SetAccent(null);
+            SyncAccentSourceCombo();
         }
 
         private void Accent_Click(object sender, RoutedEventArgs e)
@@ -62,6 +95,7 @@ namespace HyperMedia_Lite
                     Convert.ToByte(hex.Substring(4, 2), 16),
                     Convert.ToByte(hex.Substring(6, 2), 16));
                 ThemeService.SetAccent(color);
+                SyncAccentSourceCombo();
             }
         }
 

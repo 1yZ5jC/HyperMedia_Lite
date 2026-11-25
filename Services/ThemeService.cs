@@ -13,6 +13,14 @@ namespace HyperMedia_Lite.Services
         Dark
     }
 
+    /// <summary>强调色来源，与明暗主题（跟随系统 / 浅色 / 深色）相互独立。</summary>
+    public enum AccentSource
+    {
+        System,   // 系统强调色
+        Cover,    // 跟随当前歌曲封面 / 视频帧取色
+        Manual    // 用户在设置页手动选择
+    }
+
     /// <summary>
     /// 主题与强调色管理：默认跟随系统，用户可在设置页覆盖。
     /// 通过直接修改 App.xaml 中的画刷颜色，使所有 StaticResource 引用实时更新。
@@ -21,17 +29,30 @@ namespace HyperMedia_Lite.Services
     {
         private const string ThemeKey = "AppTheme";
         private const string AccentKey = "CustomAccent";
+        private const string AccentSourceKey = "AccentSource";
 
         public static AppTheme CurrentTheme { get; private set; } = AppTheme.System;
+
+        public static AccentSource CurrentAccentSource { get; private set; } = AccentSource.System;
 
         public static Color? CustomAccent { get; private set; }
 
         private static Color? _dynamicAccent;
 
-        /// <summary>应用封面取色（不持久化；用户手动设置的强调色优先）。</summary>
+        /// <summary>
+        /// 应用封面取色（不持久化）。仅在强调色来源为 Cover 时生效；
+        /// 但播放页背景始终可用它（背景跟随封面是独立行为）。
+        /// </summary>
         public static void SetDynamicAccent(Color? color)
         {
             _dynamicAccent = color;
+            Apply();
+        }
+
+        public static void SetAccentSource(AccentSource source)
+        {
+            CurrentAccentSource = source;
+            ApplicationData.Current.LocalSettings.Values[AccentSourceKey] = source.ToString();
             Apply();
         }
 
@@ -45,6 +66,12 @@ namespace HyperMedia_Lite.Services
                 {
                     CurrentTheme = parsed;
                 }
+            }
+
+            if (values.TryGetValue(AccentSourceKey, out object sourceRaw) && sourceRaw is string sourceText
+                && Enum.TryParse(sourceText, out AccentSource parsedSource))
+            {
+                CurrentAccentSource = parsedSource;
             }
 
             if (values.TryGetValue(AccentKey, out object accentRaw) && accentRaw is string hex
@@ -70,10 +97,15 @@ namespace HyperMedia_Lite.Services
             if (color.HasValue)
             {
                 values[AccentKey] = ToHex(color.Value);
+                // 手动选色即切换到 Manual 来源，避免被封面色覆盖。
+                CurrentAccentSource = AccentSource.Manual;
+                values[AccentSourceKey] = AccentSource.Manual.ToString();
             }
             else
             {
                 values.Remove(AccentKey);
+                CurrentAccentSource = AccentSource.System;
+                values[AccentSourceKey] = AccentSource.System.ToString();
             }
             Apply();
         }
@@ -89,7 +121,19 @@ namespace HyperMedia_Lite.Services
             bool dark = CurrentTheme == AppTheme.Dark
                 || (CurrentTheme == AppTheme.System && Application.Current.RequestedTheme == ApplicationTheme.Dark);
 
-            Color accent = CustomAccent ?? _dynamicAccent ?? GetSystemAccent();
+            Color accent;
+            switch (CurrentAccentSource)
+            {
+                case AccentSource.Cover:
+                    accent = _dynamicAccent ?? GetSystemAccent();
+                    break;
+                case AccentSource.Manual:
+                    accent = CustomAccent ?? GetSystemAccent();
+                    break;
+                default:
+                    accent = GetSystemAccent();
+                    break;
+            }
             Color accentPressed = Darken(accent, 0.82);
 
             SetColor("AccentBrush", accent);

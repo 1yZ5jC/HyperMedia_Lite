@@ -21,6 +21,9 @@ namespace HyperMedia_Lite
         public int Order;
         public LyricFormat Format;
         public string LyricText;
+
+        /// <summary>匹配标签：精确 / 近似，供候选列表显示。</summary>
+        public string MatchLabel => StrictMatch ? "精确" : "近似";
     }
 
     /// <summary>标题/艺人归一化与打分（移植自 HyperMedia）。</summary>

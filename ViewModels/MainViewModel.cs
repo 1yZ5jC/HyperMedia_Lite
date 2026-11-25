@@ -800,6 +800,7 @@ namespace HyperMedia_Lite.ViewModels
             {
                 return;
             }
+            // 清除已记住的选择与缓存，重新搜索并弹出候选选择。
             await LyricsService.ForgetChoiceAsync(item);
             await LoadLyricsAsync(item);
         }
