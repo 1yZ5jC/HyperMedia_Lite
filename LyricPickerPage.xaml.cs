@@ -134,6 +134,11 @@ namespace HyperMedia_Lite
             Complete(CandidateList.SelectedItem as LyricCandidate);
         }
 
+        private void Reset_Click(object sender, RoutedEventArgs e)
+        {
+            Complete(new LyricCandidate { IsResetRequest = true });
+        }
+
         private void Cancel_Click(object sender, RoutedEventArgs e)
         {
             Complete(null);

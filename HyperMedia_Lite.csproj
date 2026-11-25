@@ -165,10 +165,12 @@
     <Compile Include="Services\ImageInfoService.cs" />
     <Compile Include="Services\ImageLoaderService.cs" />
     <Compile Include="Services\LegacyVideoBackend.cs" />
+    <Compile Include="Services\LocalMediaMatcher.cs" />
     <Compile Include="Services\LyricsParser.cs" />
     <Compile Include="Services\LyricsService.cs" />
     <Compile Include="Services\LyricPickerService.cs" />
     <Compile Include="Services\OnlineLyrics.cs" />
+    <Compile Include="Services\PrintService.cs" />
     <Compile Include="Services\SubtitleParser.cs" />
     <Compile Include="Services\SubtitleService.cs" />
     <Compile Include="Services\SystemMediaControlsService.cs" />

@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Threading;
 using System.Threading.Tasks;
 using Windows.Storage;
 
@@ -20,6 +21,9 @@ namespace HyperMedia_Lite.Helpers
 
         private const string LogFileName = "debug.log";
         private const long MaxLogBytes = 256 * 1024;
+
+        // 多条日志并发写同一文件会抛 0x80070020（文件正在使用），必须串行化。
+        private static readonly SemaphoreSlim WriteLock = new SemaphoreSlim(1, 1);
         public static void Write(string tag, string message)
         {
             string line = "[" + tag + "] " + DateTimeOffset.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + " " + message;
@@ -42,6 +46,7 @@ namespace HyperMedia_Lite.Helpers
             {
                 Task.Run(async () =>
                 {
+                    await WriteLock.WaitAsync();
                     try
                     {
                         var file = await ApplicationData.Current.LocalFolder.CreateFileAsync(
@@ -51,6 +56,7 @@ namespace HyperMedia_Lite.Helpers
                         await FileIO.WriteTextAsync(file, existing + line + Environment.NewLine);
                     }
                     catch { }
+                    finally { WriteLock.Release(); }
                 }).GetAwaiter().GetResult();
             }
             catch { }
@@ -68,6 +74,7 @@ namespace HyperMedia_Lite.Helpers
         {
             _ = Task.Run(async () =>
             {
+                await WriteLock.WaitAsync();
                 try
                 {
                     var folder = ApplicationData.Current.LocalFolder;
@@ -83,6 +90,10 @@ namespace HyperMedia_Lite.Helpers
                 catch (Exception)
                 {
                     // 日志失败不影响程序运行
+                }
+                finally
+                {
+                    WriteLock.Release();
                 }
             });
         }

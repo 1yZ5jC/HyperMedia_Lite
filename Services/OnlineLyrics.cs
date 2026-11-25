@@ -23,6 +23,9 @@ namespace HyperMedia_Lite
         public LyricFormat Format;
         public string LyricText;
 
+        /// <summary>特殊标记：用户要求清除选择、恢复内嵌 / 本地默认歌词。</summary>
+        public bool IsResetRequest;
+
         /// <summary>匹配标签：精确 / 近似，供候选列表显示。</summary>
         public string MatchLabel => StrictMatch ? "精确" : "近似";
 

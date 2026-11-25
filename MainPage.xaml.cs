@@ -88,6 +88,7 @@ namespace HyperMedia_Lite
             // 页面会被 Frame 缓存复用，返回时重新订阅（先退订确保不重复）。
             UnsubscribeViewModel();
             SubscribeViewModel();
+            PrintService.Register();
 
             // 从编辑页返回时恢复图片查看器（缓存复用时 Loaded 不会再触发）。
             if (App.PhotoToRestore != null)
@@ -124,6 +125,7 @@ namespace HyperMedia_Lite
         {
             // 视图模型是全局共享的，离开页面时解除订阅，避免返回后重复注册。
             UnsubscribeViewModel();
+            PrintService.Unregister();
             base.OnNavigatedFrom(e);
         }
 
@@ -821,6 +823,24 @@ namespace HyperMedia_Lite
         {
             PhotoViewer.ResetView();
             SyncZoomSlider();
+        }
+
+        private async void PrintPhoto_Click(object sender, RoutedEventArgs e)
+        {
+            if (_photoIndex < 0 || _photoIndex >= _photoItems.Count) return;
+            var item = _photoItems[_photoIndex];
+            if (item?.File == null) return;
+
+            PhotoPrintButton.IsEnabled = false;
+            try
+            {
+                await PrintService.PrintAsync(item.File, item.Title);
+            }
+            catch { }
+            finally
+            {
+                PhotoPrintButton.IsEnabled = true;
+            }
         }
 
         private void Rotate_Click(object sender, RoutedEventArgs e)

@@ -3,6 +3,7 @@ using HyperMedia_Lite.ViewModels;
 using System;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.Activation;
+using Windows.ApplicationModel.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
@@ -15,6 +16,9 @@ namespace HyperMedia_Lite
     sealed partial class App : Application
     {
         private static MainViewModel _mainViewModel;
+
+        /// <summary>应用是否处于后台（用于后台音频的内存/状态管理）。</summary>
+        private bool _isInBackgroundMode;
 
         /// <summary>从编辑器返回时需要恢复的图片灯箱项。</summary>
         public static Models.MediaItem PhotoToRestore { get; set; }
@@ -35,7 +39,8 @@ namespace HyperMedia_Lite
             this.InitializeComponent();
             HyperMedia_Lite.Helpers.DebugLog.WriteStartupStep("App ctor InitializeComponent done");
             this.Suspending += OnSuspending;
-            HyperMedia_Lite.Helpers.DebugLog.WriteStartupStep("Suspending subscribed");
+            this.EnteredBackground += App_EnteredBackground;
+            this.LeavingBackground += App_LeavingBackground;
             this.UnhandledException += OnUnhandledException;
             HyperMedia_Lite.Helpers.DebugLog.WriteStartupStep("UnhandledException subscribed");
         }
@@ -128,10 +133,23 @@ namespace HyperMedia_Lite
         /// </summary>
         /// <param name="sender">挂起的请求的源。</param>
         /// <param name="e">有关挂起请求的详细信息。</param>
+        private void App_EnteredBackground(object sender, EnteredBackgroundEventArgs e)
+        {
+            // 后台音频由 manifest 的 backgroundMediaPlayback 能力维持，
+            // 这里只标记状态，不做长时间工作，也不暂停播放。
+            _isInBackgroundMode = true;
+        }
+
+        private void App_LeavingBackground(object sender, LeavingBackgroundEventArgs e)
+        {
+            _isInBackgroundMode = false;
+        }
+
         private void OnSuspending(object sender, SuspendingEventArgs e)
         {
             var deferral = e.SuspendingOperation.GetDeferral();
-            PlaybackService.Current.Pause();
+            // 不要在这里暂停播放：声明了后台音频能力后，
+            // 即使窗口最小化 / 应用挂起，音乐也应继续播放。
             deferral.Complete();
         }
     }

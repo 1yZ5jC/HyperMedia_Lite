@@ -2,6 +2,9 @@ using HyperMedia_Lite.Helpers;
 using HyperMedia_Lite.Services;
 using HyperMedia_Lite.ViewModels;
 using System;
+using System.Collections.Generic;
+using Windows.Storage;
+using Windows.Storage.Pickers;
 using Windows.UI;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -119,6 +122,43 @@ namespace HyperMedia_Lite
         private void ClearAccess_Click(object sender, RoutedEventArgs e)
         {
             _viewModel.ClearSavedFiles();
+        }
+
+        private async void ExportLog_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                string content = await DebugLog.ReadAsync();
+                if (string.IsNullOrEmpty(content))
+                {
+                    LogStatusText.Text = "日志为空";
+                    return;
+                }
+
+                var picker = new FileSavePicker
+                {
+                    SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
+                    SuggestedFileName = "hypermedia-log-" + DateTime.Now.ToString("yyyyMMdd-HHmmss")
+                };
+                picker.FileTypeChoices.Add("日志文件", new List<string> { ".log" });
+
+                var file = await picker.PickSaveFileAsync();
+                if (file != null)
+                {
+                    await FileIO.WriteTextAsync(file, content);
+                    LogStatusText.Text = "已导出到 " + file.Name;
+                }
+            }
+            catch (Exception ex)
+            {
+                LogStatusText.Text = "导出失败：" + ex.Message;
+            }
+        }
+
+        private async void ClearLog_Click(object sender, RoutedEventArgs e)
+        {
+            await DebugLog.ClearAsync();
+            LogStatusText.Text = "日志已清理";
         }
     }
 }

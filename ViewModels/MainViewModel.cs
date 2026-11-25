@@ -824,16 +824,29 @@ namespace HyperMedia_Lite.ViewModels
             var chosen = LyricsService.CandidatePicker != null
                 ? await LyricsService.CandidatePicker(candidates, artist, title, album)
                 : null;
+
+            if (chosen != null && chosen.IsResetRequest)
+            {
+                // 清除显式选择，改回内嵌 / 本地同名歌词（不再走在线、不重复弹面板）。
+                await LyricsService.ForgetChoiceAsync(item);
+                ApplyLyrics(await LyricsService.LoadDefaultAsync(item));
+                return;
+            }
+
             if (chosen == null || string.IsNullOrEmpty(chosen.LyricText))
             {
                 return;
             }
 
             var lines = LyricsParser.Parse(chosen.LyricText, chosen.Format);
-            _lyrics = lines;
+            await LyricsService.PersistChoiceAsync(item, chosen.Source, chosen.SongId, lines);
+            ApplyLyrics(lines);
+        }
+
+        private void ApplyLyrics(List<LyricLine> lines)
+        {
+            _lyrics = lines ?? new List<LyricLine>();
             _lyricIndex = -1;
-            ApplicationData.Current.LocalSettings.Values["LyricChoice_" + item.Path] =
-                chosen.Source + "|" + chosen.SongId;
             OnPropertyChanged(nameof(Lyrics));
             OnPropertyChanged(nameof(HasLyrics));
             OnPropertyChanged(nameof(CurrentLyricText));
@@ -867,7 +880,7 @@ namespace HyperMedia_Lite.ViewModels
                 return;
             }
 
-            var file = await SubtitleService.FindSiblingAsync(item.File);
+            var file = await SubtitleService.FindSiblingAsync(item.File, item);
             if (file == null)
             {
                 return;

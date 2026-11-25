@@ -163,9 +163,7 @@
                         <Setter Target="NowPlayingRateButton.Visibility" Value="Collapsed"/>
                         <Setter Target="NowPlayingFullscreenButton.Visibility" Value="Visible"/>
                         <Setter Target="NowPlayingMoreButton.Visibility" Value="Visible"/>
-                        <Setter Target="LyricsButton.Visibility" Value="Collapsed"/>
                         <Setter Target="MoreButton.Visibility" Value="Collapsed"/>
-                        <Setter Target="ExpandButton.Visibility" Value="Collapsed"/>
                         <Setter Target="AlbumGrid.Padding" Value="4,6,4,12"/>
                         <Setter Target="SongList.Padding" Value="4,6,4,12"/>
                         <Setter Target="ArtistGrid.Padding" Value="4,6,4,12"/>
@@ -218,9 +216,7 @@
                         <Setter Target="NowPlayingRateButton.Visibility" Value="Collapsed"/>
                         <Setter Target="NowPlayingFullscreenButton.Visibility" Value="Visible"/>
                         <Setter Target="NowPlayingMoreButton.Visibility" Value="Visible"/>
-                        <Setter Target="LyricsButton.Visibility" Value="Collapsed"/>
                         <Setter Target="MoreButton.Visibility" Value="Collapsed"/>
-                        <Setter Target="ExpandButton.Visibility" Value="Collapsed"/>
                         <Setter Target="AlbumGrid.Padding" Value="8,8,8,16"/>
                         <Setter Target="SongList.Padding" Value="8,8,8,16"/>
                         <Setter Target="ArtistGrid.Padding" Value="8,8,8,16"/>
@@ -249,7 +245,6 @@
                         <Setter Target="NowPlayingCover.Width" Value="220"/>
                         <Setter Target="NowPlayingCover.Height" Value="220"/>
                         <Setter Target="NowPlayingArt.MaxWidth" Value="240"/>
-                        <Setter Target="LyricsButton.Visibility" Value="Collapsed"/>
                         <Setter Target="MoreButton.Visibility" Value="Collapsed"/>
                         <Setter Target="AlbumGrid.Padding" Value="16,12,16,16"/>
                         <Setter Target="SongList.Padding" Value="16,12,16,16"/>
@@ -794,15 +789,6 @@
                             <Slider RequestedTheme="Dark" Style="{StaticResource PlayerSliderStyle}" x:Name="VolumeSlider" Width="120" Minimum="0" Maximum="100" Margin="12,0,0,0"
                                     Value="{Binding Volume, Mode=TwoWay}" VerticalAlignment="Center"
                                     Foreground="{StaticResource SliderFillBrush}" Background="{StaticResource SliderTrackBrush}"/>
-                            <Button x:Name="LyricsButton" Style="{StaticResource PlaybackIconButtonStyle}" Width="32" Margin="14,0,0,0"
-                                    Command="{Binding ExpandPlayerCommand}" ToolTipService.ToolTip="打开歌词"
-                                    AutomationProperties.Name="歌词">
-                                <TextBlock Text="词" FontSize="14" Foreground="White"/>
-                            </Button>
-                            <Button x:Name="ExpandButton" Style="{StaticResource PlaybackIconButtonStyle}" Margin="14,0,0,0"
-                                    Command="{Binding ExpandPlayerCommand}" AutomationProperties.Name="展开播放页面">
-                                <FontIcon Glyph="&#xE740;" FontFamily="Segoe MDL2 Assets" FontSize="18"/>
-                            </Button>
                             <Button x:Name="MoreButton" Style="{StaticResource PlaybackIconButtonStyle}" Margin="14,0,0,0"
                                     AutomationProperties.Name="更多">
                                 <FontIcon Glyph="&#xE712;" FontFamily="Segoe MDL2 Assets" FontSize="18"/>
@@ -812,7 +798,6 @@
                                 <FontIcon Glyph="&#xE712;" FontFamily="Segoe MDL2 Assets" FontSize="18"/>
                                 <Button.Flyout>
                                     <MenuFlyout>
-                                        <MenuFlyoutItem Text="展开播放页面" Command="{Binding ExpandPlayerCommand}"/>
                                         <MenuFlyoutSubItem Text="播放顺序">
                                             <MenuFlyoutItem Text="顺序播放" Command="{Binding SetPlayModeCommand}" CommandParameter="Sequential"/>
                                             <MenuFlyoutItem Text="随机播放" Command="{Binding SetPlayModeCommand}" CommandParameter="Shuffle"/>
@@ -820,7 +805,6 @@
                                             <MenuFlyoutItem Text="单曲循环" Command="{Binding SetPlayModeCommand}" CommandParameter="RepeatOne"/>
                                             <MenuFlyoutItem Text="只播放本曲" Command="{Binding SetPlayModeCommand}" CommandParameter="PlayOnce"/>
                                         </MenuFlyoutSubItem>
-                                        <MenuFlyoutItem Text="歌词"/>
                                     </MenuFlyout>
                                 </Button.Flyout>
                             </Button>
@@ -1126,30 +1110,29 @@
                             AutomationProperties.Name="添加到播放列表">
                         <FontIcon Glyph="&#xE728;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="White"/>
                     </Button>
+                    <!-- 歌词按钮只对音频有意义，视频播放页隐藏 -->
                     <Button Style="{StaticResource OverlayIconButtonStyle}" Width="40" Height="36"
                             ToolTipService.ToolTip="全部歌词（点击跳转）" Click="ToggleFullLyric_Click"
+                            Visibility="{Binding IsCurrentVideo, ConverterParameter=Invert, Converter={StaticResource BoolToVisibility}}"
                             AutomationProperties.Name="全部歌词">
                         <FontIcon Glyph="&#xE8FD;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="White"/>
                     </Button>
                     <Button Style="{StaticResource OverlayIconButtonStyle}" Width="40" Height="36"
                             ToolTipService.ToolTip="选词（搜索并选择歌词）" Command="{Binding PickLyricsCommand}"
+                            Visibility="{Binding IsCurrentVideo, ConverterParameter=Invert, Converter={StaticResource BoolToVisibility}}"
                             AutomationProperties.Name="选词">
                         <FontIcon Glyph="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="White"/>
                     </Button>
                     <Button Style="{StaticResource OverlayIconButtonStyle}" Width="40" Height="36"
                             ToolTipService.ToolTip="桌面歌词" Command="{Binding ToggleDesktopLyricsCommand}"
+                            Visibility="{Binding IsCurrentVideo, ConverterParameter=Invert, Converter={StaticResource BoolToVisibility}}"
                             AutomationProperties.Name="桌面歌词">
                         <FontIcon Glyph="&#xE7F3;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="White"/>
                     </Button>
+                    <!-- 字幕只对视频有意义，音频播放页不再显示外挂字幕按钮 -->
                     <Button Style="{StaticResource OverlayIconButtonStyle}" Width="40" Height="36"
-                            ToolTipService.ToolTip="内嵌字幕（视频）" Click="Subtitle_Click"
+                            ToolTipService.ToolTip="字幕（内嵌 / 外挂）" Click="Subtitle_Click"
                             Visibility="{Binding IsCurrentVideo, Converter={StaticResource BoolToVisibility}}"
-                            AutomationProperties.Name="内嵌字幕">
-                        <FontIcon Glyph="&#xE8BA;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="White"/>
-                    </Button>
-                    <Button Style="{StaticResource OverlayIconButtonStyle}" Width="40" Height="36"
-                            ToolTipService.ToolTip="字幕（外挂）" Click="Subtitle_Click"
-                            Visibility="{Binding IsCurrentVideo, ConverterParameter=Invert, Converter={StaticResource BoolToVisibility}}"
                             AutomationProperties.Name="字幕">
                         <FontIcon Glyph="&#xE8BA;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="White"/>
                     </Button>
@@ -1407,6 +1390,11 @@
                             ToolTipService.ToolTip="适应窗口 (0)"
                             Click="Fit_Click" AutomationProperties.Name="适应窗口">
                         <FontIcon Glyph="&#xE740;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
+                    </Button>
+                    <Button x:Name="PhotoPrintButton" Style="{StaticResource OverlayIconButtonStyle}" Margin="0,0,4,0"
+                            ToolTipService.ToolTip="打印当前图片" Click="PrintPhoto_Click"
+                            AutomationProperties.Name="打印当前图片">
+                        <FontIcon Glyph="&#xE749;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
                     </Button>
                     <Button x:Name="PhotoRotateBackButton" Style="{StaticResource OverlayIconButtonStyle}" Margin="0,0,4,0"
                             ToolTipService.ToolTip="逆时针旋转"

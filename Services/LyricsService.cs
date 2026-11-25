@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using HyperMedia_Lite.Helpers;
 using HyperMedia_Lite.Models;
+using HyperMedia_Lite.Services;
 using Windows.Storage;
 
 namespace HyperMedia_Lite
@@ -63,37 +64,25 @@ namespace HyperMedia_Lite
         {
             if (item?.File == null) return new List<LyricLine>();
 
-            // 1) 音频容器内嵌歌词
-            string embedded = await LyricsParser.TryExtractEmbeddedAsync(item.File);
-            if (!string.IsNullOrEmpty(embedded))
-            {
-                DebugLog.Write("LYRIC", $"embedded lyric found, chars={embedded.Length}");
-                var lines = LyricsParser.Parse(embedded);
-                LogParsed("embedded", embedded, lines);
-                if (lines.Count > 0) return lines;
-            }
-
-            // 2) 同名本地歌词文件（含编码探测）
+            // 0) 用户在选词面板里显式选过的歌词优先，避免被自动匹配覆盖。
             try
             {
-                var folder = await item.File.GetParentAsync();
-                string baseName = Path.GetFileNameWithoutExtension(item.File.Name);
-                foreach (string ext in new[] { ".lrc", ".krc", ".qrc", ".txt", ".srt" })
+                object choiceRaw = ApplicationData.Current.LocalSettings.Values["LyricChoice_" + item.Path];
+                if (choiceRaw is string choice && !string.IsNullOrEmpty(choice))
                 {
-                    try
+                    var chosen = await ReadCacheAsync(item);
+                    if (chosen != null && chosen.Count > 0)
                     {
-                        var file = await folder.GetFileAsync(baseName + ext);
-                        var bytes = await ReadAllBytesAsync(file);
-                        DebugLog.Write("LYRIC", $"local file={file.Name}, bytes={bytes.Length}");
-                        var lines = ParseBytes(bytes);
-                        LogParsed("local:" + file.Name, DecodeForLog(bytes), lines);
-                        if (lines.Count > 0) return lines;
+                        DebugLog.Write("LYRIC", "user choice restored from cache");
+                        return chosen;
                     }
-                    catch (FileNotFoundException) { }
-                    catch { }
                 }
             }
             catch { }
+
+            // 1) 内嵌歌词 / 本地同名歌词
+            var automatic = await LoadEmbeddedOrLocalAsync(item);
+            if (automatic.Count > 0) return automatic;
 
             // 3) 缓存
             var cached = await ReadCacheAsync(item);
@@ -113,6 +102,55 @@ namespace HyperMedia_Lite
             }
 
             DebugLog.Write("LYRIC", "no lyric found from any source");
+            return new List<LyricLine>();
+        }
+
+        /// <summary>
+        /// 恢复默认歌词：只取内嵌 / 本地同名歌词，不走在线、不弹选择面板。
+        /// 用于用户在选词面板里选择「恢复默认歌词」。
+        /// </summary>
+        public static async Task<List<LyricLine>> LoadDefaultAsync(MediaItem item)
+        {
+            if (item?.File == null) return new List<LyricLine>();
+            return await LoadEmbeddedOrLocalAsync(item);
+        }
+
+        private static async Task<List<LyricLine>> LoadEmbeddedOrLocalAsync(MediaItem item)
+        {
+            // 内嵌歌词
+            try
+            {
+                string embedded = await LyricsParser.TryExtractEmbeddedAsync(item.File);
+                if (!string.IsNullOrEmpty(embedded))
+                {
+                    DebugLog.Write("LYRIC", $"embedded lyric found, chars={embedded.Length}");
+                    var lines = LyricsParser.Parse(embedded);
+                    LogParsed("embedded", embedded, lines);
+                    if (lines.Count > 0) return lines;
+                }
+            }
+            catch { }
+
+            // 本地歌词文件：同目录 / Lyrics 子目录，并兼容「艺人 - 歌名」命名变体
+            try
+            {
+                var localFile = await LocalMediaMatcher.FindAsync(
+                    item.File,
+                    new[] { ".lrc", ".krc", ".qrc", ".txt", ".srt" },
+                    new[] { "Lyrics", "lyrics", "歌词" },
+                    item.Title,
+                    item.Artist);
+                if (localFile != null)
+                {
+                    var bytes = await ReadAllBytesAsync(localFile);
+                    DebugLog.Write("LYRIC", $"local file={localFile.Name}, bytes={bytes.Length}");
+                    var lines = ParseBytes(bytes);
+                    LogParsed("local:" + localFile.Name, DecodeForLog(bytes), lines);
+                    if (lines.Count > 0) return lines;
+                }
+            }
+            catch { }
+
             return new List<LyricLine>();
         }
 
@@ -189,6 +227,12 @@ namespace HyperMedia_Lite
                 chosen = CandidatePicker != null
                     ? await CandidatePicker(candidates, artist, title, album)
                     : candidates[0];
+
+            if (chosen != null && chosen.IsResetRequest)
+            {
+                await ForgetChoiceAsync(item);
+                return await LoadDefaultAsync(item);
+            }
             if (chosen == null || string.IsNullOrEmpty(chosen.LyricText)) return null;
 
             settings["LyricChoice_" + item.Path] = chosen.Source + "|" + chosen.SongId;
@@ -199,6 +243,25 @@ namespace HyperMedia_Lite
         {
             ApplicationData.Current.LocalSettings.Values.Remove("LyricChoice_" + item.Path);
             await DeleteCacheAsync(item);
+        }
+
+        /// <summary>
+        /// 记住用户在选词面板中的选择。同时写缓存，确保下次启动时能原样恢复
+        /// （本地歌词文件选择不走在线搜索，必须显式持久化）。
+        /// </summary>
+        public static async Task PersistChoiceAsync(
+            MediaItem item, string source, string songId, List<LyricLine> lines)
+        {
+            try
+            {
+                ApplicationData.Current.LocalSettings.Values["LyricChoice_" + item.Path] =
+                    source + "|" + songId;
+                if (lines != null && lines.Count > 0)
+                {
+                    await WriteCacheAsync(item, lines);
+                }
+            }
+            catch { }
         }
 
         private static string CacheKey(MediaItem item)

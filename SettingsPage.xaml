@@ -147,6 +147,26 @@
                     </StackPanel>
                 </Border>
 
+                <!-- 诊断 -->
+                <TextBlock Text="诊断" FontSize="18" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}"/>
+                <Border Background="{StaticResource SurfaceBrush}" Padding="20" Margin="0,10,0,28">
+                    <StackPanel>
+                        <TextBlock Text="日志用于排查启动、歌词和字幕问题（自动限制约 256 KB）"
+                                   FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                            <Button Content="导出日志…" Padding="14,6" Margin="0,0,8,0"
+                                    Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
+                                    BorderThickness="1" Click="ExportLog_Click"/>
+                            <Button Content="清理日志" Padding="14,6"
+                                    Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
+                                    BorderThickness="1" Click="ClearLog_Click"/>
+                        </StackPanel>
+                        <TextBlock x:Name="LogStatusText" FontSize="11" Margin="0,8,0,0"
+                                   Foreground="{StaticResource TextSecondaryBrush}"/>
+                    </StackPanel>
+                </Border>
+
                 <!-- 关于 -->
                 <TextBlock Text="关于" FontSize="18" FontWeight="SemiBold"
                            Foreground="{StaticResource TextPrimaryBrush}"/>

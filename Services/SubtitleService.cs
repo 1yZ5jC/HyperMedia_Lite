@@ -5,6 +5,7 @@ using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text;
 using System.Threading.Tasks;
 using HyperMedia_Lite.Models;
+using HyperMedia_Lite.Services;
 using Windows.Storage;
 
 namespace HyperMedia_Lite
@@ -17,27 +18,18 @@ namespace HyperMedia_Lite
     {
         private static readonly string[] Extensions = { ".srt", ".vtt", ".ass", ".ssa" };
 
-        /// <summary>查找与视频同名的字幕文件，找到第一个即返回。</summary>
-        public static async Task<StorageFile> FindSiblingAsync(StorageFile videoFile)
+        /// <summary>
+        /// 查找与视频匹配的字幕文件：同目录 / Subtitles 子目录，
+        /// 并兼容「艺人 - 片名」等文件名变体；找到第一个即返回。
+        /// </summary>
+        public static Task<StorageFile> FindSiblingAsync(StorageFile videoFile, MediaItem item = null)
         {
-            try
-            {
-                var folder = await videoFile.GetParentAsync();
-                if (folder == null) return null;
-                string baseName = Path.GetFileNameWithoutExtension(videoFile.Name);
-                foreach (string ext in Extensions)
-                {
-                    try
-                    {
-                        var file = await folder.GetFileAsync(baseName + ext);
-                        if (file != null) return file;
-                    }
-                    catch (FileNotFoundException) { }
-                    catch { }
-                }
-            }
-            catch { }
-            return null;
+            return LocalMediaMatcher.FindAsync(
+                videoFile,
+                Extensions,
+                new[] { "Subtitles", "subtitles", "subs" },
+                item?.Title,
+                item?.Artist);
         }
 
         public static async Task<List<SubtitleLine>> LoadAsync(StorageFile file)
