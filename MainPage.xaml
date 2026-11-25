@@ -1132,9 +1132,9 @@
                         <FontIcon Glyph="&#xE8FD;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="White"/>
                     </Button>
                     <Button Style="{StaticResource OverlayIconButtonStyle}" Width="40" Height="36"
-                            ToolTipService.ToolTip="换一首歌词" Command="{Binding ChangeLyricsCommand}"
-                            AutomationProperties.Name="换词">
-                        <FontIcon Glyph="&#xE8B1;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="White"/>
+                            ToolTipService.ToolTip="选词（搜索并选择歌词）" Command="{Binding PickLyricsCommand}"
+                            AutomationProperties.Name="选词">
+                        <FontIcon Glyph="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="White"/>
                     </Button>
                     <Button Style="{StaticResource OverlayIconButtonStyle}" Width="40" Height="36"
                             ToolTipService.ToolTip="桌面歌词" Command="{Binding ToggleDesktopLyricsCommand}"
@@ -1510,6 +1510,12 @@
                     </Button>
                 </StackPanel>
             </Grid>
+        </Grid>
+
+        <!-- 歌词选择面板：覆盖在「正在播放」之上，关闭后回到正在播放 -->
+        <Grid x:Name="LyricPickerOverlay" Grid.ColumnSpan="2" Visibility="Collapsed"
+              Background="#FF1E1E1E">
+            <Frame x:Name="LyricPickerFrame"/>
         </Grid>
     </Grid>
 </Page>

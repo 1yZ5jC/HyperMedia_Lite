@@ -55,19 +55,19 @@ namespace HyperMedia_Lite
             HyperMedia_Lite.Helpers.DebugLog.WriteStartupStep("MainPage after MainViewModel");
             DataContext = _viewModel;
 
-            // 把在线歌词候选选择页接到加载管线。
-            LyricsService.CandidatePicker = candidates => LyricPickerService.PickAsync(candidates);
+            // 把在线歌词候选选择页接到加载管线；面板作为覆盖层显示，关闭后回到正在播放。
+            LyricPickerService.PickerFrame = LyricPickerFrame;
+            LyricPickerService.OverlayVisibilityChanged = visible =>
+                LyricPickerOverlay.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+            LyricsService.CandidatePicker = (candidates, artist, title, album) =>
+                LyricPickerService.PickAsync(candidates, artist, title, album);
 
             // 14393+：动态创建 MediaPlayerElement 并绑定同一个 MediaPlayer；10240 上不存在该类型。
             HyperMedia_Lite.Helpers.DebugLog.WriteStartupStep("MainPage before SetupVideoSurface");
             SetupVideoSurface();
             HyperMedia_Lite.Helpers.DebugLog.WriteStartupStep("MainPage after SetupVideoSurface");
 
-            _viewModel.PhotoRequested += OnPhotoRequested;
-            _viewModel.PlayerRequested += OnPlayerRequested;
-            _viewModel.PropertyChanged += ViewModel_PropertyChanged;
-            Window.Current.CoreWindow.KeyDown += CoreWindow_KeyDown;
-            Window.Current.SizeChanged += OnWindowSizeChanged;
+            SubscribeViewModel();
             _viewModel.IsCompact = Window.Current.Bounds.Width < 641;
 
             Loaded += MainPage_Loaded;
@@ -80,7 +80,16 @@ namespace HyperMedia_Lite
             await _viewModel.InitializeAsync();
             HyperMedia_Lite.Helpers.DebugLog.WriteStartupStep("MainPage initialized");
 
-            // 从编辑页返回时恢复图片查看器。
+        }
+
+        protected override void OnNavigatedTo(NavigationEventArgs e)
+        {
+            base.OnNavigatedTo(e);
+            // 页面会被 Frame 缓存复用，返回时重新订阅（先退订确保不重复）。
+            UnsubscribeViewModel();
+            SubscribeViewModel();
+
+            // 从编辑页返回时恢复图片查看器（缓存复用时 Loaded 不会再触发）。
             if (App.PhotoToRestore != null)
             {
                 var item = App.PhotoToRestore;
@@ -93,14 +102,28 @@ namespace HyperMedia_Lite
             }
         }
 
-        protected override void OnNavigatedFrom(NavigationEventArgs e)
+        private void SubscribeViewModel()
         {
-            // 视图模型是全局共享的，离开页面时解除订阅，避免返回后重复注册。
+            _viewModel.PhotoRequested += OnPhotoRequested;
+            _viewModel.PlayerRequested += OnPlayerRequested;
+            _viewModel.PropertyChanged += ViewModel_PropertyChanged;
+            Window.Current.CoreWindow.KeyDown += CoreWindow_KeyDown;
+            Window.Current.SizeChanged += OnWindowSizeChanged;
+        }
+
+        private void UnsubscribeViewModel()
+        {
             _viewModel.PhotoRequested -= OnPhotoRequested;
             _viewModel.PlayerRequested -= OnPlayerRequested;
             _viewModel.PropertyChanged -= ViewModel_PropertyChanged;
             Window.Current.CoreWindow.KeyDown -= CoreWindow_KeyDown;
             Window.Current.SizeChanged -= OnWindowSizeChanged;
+        }
+
+        protected override void OnNavigatedFrom(NavigationEventArgs e)
+        {
+            // 视图模型是全局共享的，离开页面时解除订阅，避免返回后重复注册。
+            UnsubscribeViewModel();
             base.OnNavigatedFrom(e);
         }
 

@@ -19,8 +19,8 @@ namespace HyperMedia_Lite
     {
         private const string CacheFolder = "lyrics";
 
-        /// <summary>由页面设置：返回用户选中的候选，返回 null 表示取消。</summary>
-        public static Func<List<LyricCandidate>, Task<LyricCandidate>> CandidatePicker { get; set; }
+        /// <summary>由页面设置：返回用户选中的候选，返回 null 表示取消。参数：候选、艺人、歌名、专辑。</summary>
+        public static Func<List<LyricCandidate>, string, string, string, Task<LyricCandidate>> CandidatePicker { get; set; }
 
         private static string Snippet(string text, int max = 1500)
         {
@@ -186,7 +186,9 @@ namespace HyperMedia_Lite
             if (!string.IsNullOrEmpty(remembered))
                 chosen = candidates.FirstOrDefault(c => c.Source + "|" + c.SongId == remembered);
             if (chosen == null)
-                chosen = CandidatePicker != null ? await CandidatePicker(candidates) : candidates[0];
+                chosen = CandidatePicker != null
+                    ? await CandidatePicker(candidates, artist, title, album)
+                    : candidates[0];
             if (chosen == null || string.IsNullOrEmpty(chosen.LyricText)) return null;
 
             settings["LyricChoice_" + item.Path] = chosen.Source + "|" + chosen.SongId;

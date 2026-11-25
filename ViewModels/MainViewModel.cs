@@ -68,7 +68,8 @@ namespace HyperMedia_Lite.ViewModels
         public RelayCommand PreviousCommand { get; }
         public RelayCommand CyclePlayModeCommand { get; }
         public RelayCommand SetPlayModeCommand { get; }
-        public RelayCommand ChangeLyricsCommand { get; }
+        public RelayCommand PickLyricsCommand { get; }
+        public RelayCommand ReloadLyricsCommand { get; }
         public RelayCommand ToggleDesktopLyricsCommand { get; }
         public RelayCommand SelectEmbeddedSubtitleCommand { get; }
         public RelayCommand ClearSubtitleCommand { get; }
@@ -94,7 +95,8 @@ namespace HyperMedia_Lite.ViewModels
             NextCommand = new RelayCommand(_ => _playback.Next());
             PreviousCommand = new RelayCommand(_ => _playback.Previous());
             CyclePlayModeCommand = new RelayCommand(_ => _playback.CycleMode());
-            ChangeLyricsCommand = new RelayCommand(_ => _ = ReloadLyricsAsync());
+            PickLyricsCommand = new RelayCommand(_ => _ = PickLyricsAsync());
+            ReloadLyricsCommand = new RelayCommand(_ => _ = ReloadLyricsAsync());
             ToggleDesktopLyricsCommand = new RelayCommand(_ => _ = DesktopLyricsBridge.ToggleAsync());
             SelectEmbeddedSubtitleCommand = new RelayCommand(parameter =>
             {
@@ -791,6 +793,53 @@ namespace HyperMedia_Lite.ViewModels
             OnPropertyChanged(nameof(Subtitles));
             OnPropertyChanged(nameof(HasSubtitle));
             OnPropertyChanged(nameof(CurrentSubtitleText));
+        }
+
+        /// <summary>
+        /// 打开歌词选择面板：以当前曲目信息搜索候选，用户选定后替换歌词。
+        /// 与「重新搜索」不同，这里不清除已记住的选择。
+        /// </summary>
+        private async System.Threading.Tasks.Task PickLyricsAsync()
+        {
+            var item = _activeItem;
+            if (item == null || item.File == null)
+            {
+                return;
+            }
+
+            // 优先用元数据；元数据缺失时再从「艺人 - 歌名」形式的文件名解析。
+            string display = item.File.DisplayName;
+            var parsed = LyricMatcher.ParseArtistTitleFromFileName(display);
+            bool fileNameHasArtist = !string.IsNullOrWhiteSpace(parsed.Item1);
+
+            string title = fileNameHasArtist && item.Title == display
+                ? parsed.Item2
+                : (!string.IsNullOrWhiteSpace(item.Title) ? item.Title : parsed.Item2);
+            string artist = !string.IsNullOrWhiteSpace(item.Artist) ? item.Artist : parsed.Item1;
+            string album = item.Album;
+
+            // 立即打开面板，由面板内部异步搜索，避免按钮点击后长时间等待。
+            var candidates = new List<LyricCandidate>();
+
+            var chosen = LyricsService.CandidatePicker != null
+                ? await LyricsService.CandidatePicker(candidates, artist, title, album)
+                : null;
+            if (chosen == null || string.IsNullOrEmpty(chosen.LyricText))
+            {
+                return;
+            }
+
+            var lines = LyricsParser.Parse(chosen.LyricText, chosen.Format);
+            _lyrics = lines;
+            _lyricIndex = -1;
+            ApplicationData.Current.LocalSettings.Values["LyricChoice_" + item.Path] =
+                chosen.Source + "|" + chosen.SongId;
+            OnPropertyChanged(nameof(Lyrics));
+            OnPropertyChanged(nameof(HasLyrics));
+            OnPropertyChanged(nameof(CurrentLyricText));
+            OnPropertyChanged(nameof(NextLyricText));
+            DesktopLyricsBridge.Clear();
+            UpdateLyricAndSubtitle(_playback.Position.TotalSeconds);
         }
 
         private async System.Threading.Tasks.Task ReloadLyricsAsync()

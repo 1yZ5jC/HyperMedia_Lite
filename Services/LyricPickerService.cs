@@ -7,14 +7,21 @@ using Windows.UI.Xaml.Controls;
 namespace HyperMedia_Lite.Services
 {
     /// <summary>
-    /// 把歌词候选选择页推入当前 Frame，并等待用户结果。
-    /// 在 MainPage.Loaded 之后调用，避免过早访问导航栈。
+    /// 把歌词候选选择页推入 MainPage 内的专用 Frame（覆盖在「正在播放」之上），
+    /// 并等待用户结果。这样关闭面板后仍停留在正在播放，而不是回到主页。
     /// </summary>
     public static class LyricPickerService
     {
-        public static async Task<LyricCandidate> PickAsync(List<LyricCandidate> candidates)
+        /// <summary>由 MainPage 在构造时提供页面内的 Frame。</summary>
+        public static Frame PickerFrame { get; set; }
+
+        /// <summary>由 MainPage 提供，控制覆盖层的显示与隐藏。</summary>
+        public static Action<bool> OverlayVisibilityChanged { get; set; }
+
+        public static async Task<LyricCandidate> PickAsync(
+            List<LyricCandidate> candidates, string artist = null, string title = null, string album = null)
         {
-            var frame = Window.Current?.Content as Frame;
+            var frame = PickerFrame;
             if (frame == null)
             {
                 return null;
@@ -24,13 +31,25 @@ namespace HyperMedia_Lite.Services
             var args = new LyricPickerArgs
             {
                 Candidates = candidates,
+                Artist = artist,
+                Title = title,
+                Album = album,
                 Completion = completion
             };
 
+            OverlayVisibilityChanged?.Invoke(true);
             await frame.Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal,
-                () => frame.Navigate(typeof(LyricPickerPage), args));
+                () =>
+                {
+                    // 每次都是全新会话，清掉旧的后退记录避免反复打开后栈无限增长。
+                    frame.BackStack.Clear();
+                    frame.Navigate(typeof(LyricPickerPage), args);
+                });
 
-            return await completion.Task;
+            var result = await completion.Task;
+
+            OverlayVisibilityChanged?.Invoke(false);
+            return result;
         }
     }
 }

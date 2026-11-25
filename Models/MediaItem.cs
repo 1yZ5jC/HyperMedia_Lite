@@ -30,6 +30,7 @@ namespace HyperMedia_Lite.Models
         private string _durationText = string.Empty;
         private string _title;
         private string _subtitle;
+        private string _artist = string.Empty;
         private string _album = string.Empty;
         private uint _pixelWidth;
 
@@ -53,6 +54,13 @@ namespace HyperMedia_Lite.Models
         {
             get => _subtitle;
             private set => SetProperty(ref _subtitle, value);
+        }
+
+        /// <summary>艺人（来自系统元数据，供歌词搜索预填）。</summary>
+        public string Artist
+        {
+            get => _artist;
+            private set => SetProperty(ref _artist, value);
         }
 
         /// <summary>所属专辑（用于「专辑 / 歌手」视图分组）。</summary>
@@ -140,6 +148,7 @@ namespace HyperMedia_Lite.Models
 
                     string artist = p.Artist ?? string.Empty;
                     string album = p.Album ?? string.Empty;
+                    Artist = artist;
                     Subtitle = !string.IsNullOrWhiteSpace(artist) ? artist
                         : !string.IsNullOrWhiteSpace(album) ? album
                         : File.FileType.TrimStart('.').ToUpperInvariant() + " 音频";

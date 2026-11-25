@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Windows.Data.Json;
 using Windows.Web.Http;
@@ -24,6 +25,37 @@ namespace HyperMedia_Lite
 
         /// <summary>匹配标签：精确 / 近似，供候选列表显示。</summary>
         public string MatchLabel => StrictMatch ? "精确" : "近似";
+
+        /// <summary>
+        /// 候选显示名：优先用歌词内的 [ti:] 标签，其次用可识别的标题，
+        /// 再退到专辑 / 艺人。搜索结果有时只给「02」这类曲目号，避免列表全是数字。
+        /// </summary>
+        public string DisplayTitle
+        {
+            get
+            {
+                string ti = ExtractTag("ti");
+                if (!string.IsNullOrWhiteSpace(ti)) return ti;
+
+                if (!string.IsNullOrWhiteSpace(Title) && Title.Trim().Length > 2
+                    && !Title.Trim().All(char.IsDigit))
+                {
+                    return Title.Trim();
+                }
+
+                if (!string.IsNullOrWhiteSpace(Album)) return Album.Trim();
+                if (!string.IsNullOrWhiteSpace(Artist)) return Artist.Trim();
+                return string.IsNullOrWhiteSpace(Title) ? "未命名歌词" : Title.Trim();
+            }
+        }
+
+        private string ExtractTag(string key)
+        {
+            if (string.IsNullOrEmpty(LyricText)) return null;
+            var match = Regex.Match(LyricText,
+                @"\[\s*" + key + @"\s*:\s*([^\]]+)\]", RegexOptions.IgnoreCase);
+            return match.Success ? match.Groups[1].Value.Trim() : null;
+        }
     }
 
     /// <summary>标题/艺人归一化与打分（移植自 HyperMedia）。</summary>
@@ -244,14 +276,29 @@ namespace HyperMedia_Lite
 
         public static async Task<List<LyricCandidate>> SearchAllAsync(string artist, string title, string album)
         {
+            return await SearchAsync(artist, title, album, "auto");
+        }
+
+        /// <summary>
+        /// 带来源筛选的搜索。source: auto / netease / qq。
+        /// </summary>
+        public static async Task<List<LyricCandidate>> SearchAsync(
+            string artist, string title, string album, string source)
+        {
             int generation = ++_generation;
             try
             {
                 var all = new List<LyricCandidate>();
-                all.AddRange(await CollectNetease(artist, title, album));
-                if (generation != _generation) return null;
-                all.AddRange(await CollectQq(artist, title, album));
-                if (generation != _generation) return null;
+                if (source != "qq")
+                {
+                    all.AddRange(await CollectNetease(artist, title, album));
+                    if (generation != _generation) return null;
+                }
+                if (source != "netease")
+                {
+                    all.AddRange(await CollectQq(artist, title, album));
+                    if (generation != _generation) return null;
+                }
 
                 var usable = all.Where(c => !string.IsNullOrEmpty(c.LyricText)).ToList();
                 usable.Sort((a, b) =>

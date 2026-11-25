@@ -73,6 +73,9 @@ namespace HyperMedia_Lite
 
                 rootFrame.NavigationFailed += OnNavigationFailed;
 
+                // 缓存页面：从歌词选择面板返回时保留「正在播放」浮层状态。
+                rootFrame.CacheSize = 3;
+
                 // 将框架放在当前窗口中
                 Window.Current.Content = rootFrame;
 
