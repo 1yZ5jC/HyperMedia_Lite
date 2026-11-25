@@ -10,6 +10,9 @@ using Windows.Media.Playback;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
 
+// 10240 兼容路径需要 MediaPlayer 的旧 API，新平台上仅作回退使用。
+#pragma warning disable 618
+
 namespace HyperMedia_Lite.Services
 {
     /// <summary>播放顺序模式。</summary>

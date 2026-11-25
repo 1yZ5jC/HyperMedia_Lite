@@ -39,7 +39,6 @@ namespace HyperMedia_Lite.ViewModels
         private NavTarget _currentNav = NavTarget.Music;
         private SortMode _sortMode = SortMode.Title;
         private int _selectedTab = 2; // 默认「专辑」，与参考图一致
-        private string _pageTitle = "我的音乐";
         private string _searchText = string.Empty;
         private string _artistFilter = string.Empty;
         private string _statusMessage = string.Empty;
@@ -84,8 +83,6 @@ namespace HyperMedia_Lite.ViewModels
         public RelayCommand ClearArtistFilterCommand { get; }
 
         public event MediaItemEventHandler PhotoRequested;
-        public event EventHandler<AlbumCard> AlbumRequested;
-        public event EventHandler<ArtistCard> ArtistRequested;
 
         public MainViewModel()
         {
@@ -900,8 +897,6 @@ namespace HyperMedia_Lite.ViewModels
 
             UpdateWordProgress(position);
         }
-
-        private int _wordStyledLine = -1;
 
         private void UpdateWordProgress(double position)
         {
