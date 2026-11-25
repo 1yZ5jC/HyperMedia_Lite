@@ -48,13 +48,16 @@ namespace HyperMedia_Lite.Services
 
         private SystemMediaControlsService()
         {
+            Helpers.DebugLog.WriteStartupStep("SystemMediaControlsService ctor begin");
             try
             {
                 _controls = SystemMediaTransportControls.GetForCurrentView();
+                Helpers.DebugLog.WriteStartupStep("SystemMediaControlsService GetForCurrentView ok");
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 _controls = null;
+                Helpers.DebugLog.WriteStartupStep("SystemMediaControlsService failed: " + ex.Message);
             }
         }
 

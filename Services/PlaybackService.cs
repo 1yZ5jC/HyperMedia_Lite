@@ -44,33 +44,40 @@ namespace HyperMedia_Lite.Services
 
         public MediaPlayer Player => _player;
 
-        private MediaPlaybackItem _playbackItem;
+        // 用 object 保存，避免在最低版本 10240 的编译单元中直接引用 14393+ 类型。
+        private object _playbackItem;
 
         /// <summary>是否支持平台内嵌字幕轨选择（14393+ 的 MediaPlaybackItem）。</summary>
         public bool CanSelectEmbeddedSubtitles => !_useLegacyPlayback && _playbackItem != null;
 
         /// <summary>当前媒体容器中可选择的字幕轨（标签 + 轨道引用）。</summary>
-        public IReadOnlyList<Tuple<TimedMetadataTrack, string>> GetEmbeddedSubtitleTracks()
+        public IReadOnlyList<Tuple<int, string>> GetEmbeddedSubtitleTracks()
         {
-            var result = new List<Tuple<TimedMetadataTrack, string>>();
+            var result = new List<Tuple<int, string>>();
             if (!CanSelectEmbeddedSubtitles)
             {
                 return result;
             }
             try
             {
-                var tracks = _playbackItem.TimedMetadataTracks;
+                var tracks = (System.Collections.IList)_playbackItem.GetType()
+                    .GetProperty("TimedMetadataTracks").GetValue(_playbackItem);
+                if (tracks == null) return result;
+
                 for (int i = 0; i < tracks.Count; i++)
                 {
                     var track = tracks[i];
-                    if (track == null || track.TimedMetadataKind != TimedMetadataKind.Subtitle)
-                    {
-                        continue;
-                    }
-                    string label = track.Label;
-                    if (string.IsNullOrWhiteSpace(label)) label = track.Language;
+                    if (track == null) continue;
+
+                    string kind = track.GetType().GetProperty("TimedMetadataKind")?.GetValue(track)?.ToString();
+                    if (!string.Equals(kind, "Subtitle", StringComparison.OrdinalIgnoreCase)) continue;
+
+                    string label = track.GetType().GetProperty("Label")?.GetValue(track) as string;
+                    if (string.IsNullOrWhiteSpace(label))
+                        label = track.GetType().GetProperty("Language")?.GetValue(track) as string;
                     if (string.IsNullOrWhiteSpace(label)) label = "字幕轨 " + i;
-                    result.Add(Tuple.Create(track, label));
+
+                    result.Add(Tuple.Create(i, label));
                 }
             }
             catch (Exception)
@@ -80,55 +87,50 @@ namespace HyperMedia_Lite.Services
             return result;
         }
 
-        public bool SelectEmbeddedSubtitle(TimedMetadataTrack track)
+        public bool SelectEmbeddedSubtitle(int trackIndex)
         {
-            if (!CanSelectEmbeddedSubtitles || track == null)
+            return SetSubtitlePresentation(trackIndex, true);
+        }
+
+        public void ClearEmbeddedSubtitles()
+        {
+            SetSubtitlePresentation(-1, false);
+        }
+
+        private bool SetSubtitlePresentation(int selectedIndex, bool onlySelected)
+        {
+            if (!CanSelectEmbeddedSubtitles)
             {
                 return false;
             }
             try
             {
-                var tracks = _playbackItem.TimedMetadataTracks;
+                var tracks = (System.Collections.IList)_playbackItem.GetType()
+                    .GetProperty("TimedMetadataTracks").GetValue(_playbackItem);
+                if (tracks == null) return false;
+
+                var modeType = Type.GetType("Windows.Media.Core.TimedMetadataTrackPresentationMode, Windows.Foundation.UniversalApiContract");
+                if (modeType == null) return false;
+
                 for (int i = 0; i < tracks.Count; i++)
                 {
-                    var item = tracks[i];
-                    if (item == null || item.TimedMetadataKind != TimedMetadataKind.Subtitle)
-                    {
-                        continue;
-                    }
-                    tracks.SetPresentationMode((uint)i,
-                        ReferenceEquals(item, track)
-                            ? TimedMetadataTrackPresentationMode.PlatformPresented
-                            : TimedMetadataTrackPresentationMode.Disabled);
+                    var track = tracks[i];
+                    if (track == null) continue;
+                    string kind = track.GetType().GetProperty("TimedMetadataKind")?.GetValue(track)?.ToString();
+                    if (!string.Equals(kind, "Subtitle", StringComparison.OrdinalIgnoreCase)) continue;
+
+                    bool enable = onlySelected && i == selectedIndex;
+                    // PlatformPresented = 0, Disabled = 2
+                    int modeValue = enable ? 0 : 2;
+                    object mode = Enum.ToObject(modeType, modeValue);
+                    tracks.GetType().GetMethod("SetPresentationMode")?.Invoke(tracks,
+                        new object[] { (uint)i, mode });
                 }
                 return true;
             }
             catch (Exception)
             {
                 return false;
-            }
-        }
-
-        public void ClearEmbeddedSubtitles()
-        {
-            if (!CanSelectEmbeddedSubtitles)
-            {
-                return;
-            }
-            try
-            {
-                var tracks = _playbackItem.TimedMetadataTracks;
-                for (int i = 0; i < tracks.Count; i++)
-                {
-                    if (tracks[i]?.TimedMetadataKind == TimedMetadataKind.Subtitle)
-                    {
-                        tracks.SetPresentationMode((uint)i, TimedMetadataTrackPresentationMode.Disabled);
-                    }
-                }
-            }
-            catch (Exception)
-            {
-                // ignored
             }
         }
 
@@ -338,11 +340,32 @@ namespace HyperMedia_Lite.Services
                     // 10240：视频走 MediaElement 后端，应用内播放。
                     await _videoBackend.PlayAsync(item.File);
                 }
+                else if (!_useLegacyPlayback)
+                {
+                    // 14393+：用反射构造 MediaPlaybackItem，避免在 10240 编译单元中引用该类型。
+                    var source = MediaSource.CreateFromStorageFile(item.File);
+                    try
+                    {
+                        var itemType = Type.GetType("Windows.Media.Playback.MediaPlaybackItem, Windows.Foundation.UniversalApiContract");
+                        if (itemType != null)
+                        {
+                            _playbackItem = Activator.CreateInstance(itemType, new object[] { source });
+                            _player.Source = (Windows.Media.Playback.IMediaPlaybackSource)_playbackItem;
+                        }
+                        else
+                        {
+                            _player.Source = source;
+                        }
+                    }
+                    catch (Exception)
+                    {
+                        _player.Source = source;
+                    }
+                    _player.Play();
+                }
                 else
                 {
-                    var source = MediaSource.CreateFromStorageFile(item.File);
-                    _playbackItem = new MediaPlaybackItem(source);
-                    _player.Source = _playbackItem;
+                    _player.Source = MediaSource.CreateFromStorageFile(item.File);
                     _player.Play();
                 }
             }

@@ -31,8 +31,25 @@ namespace HyperMedia_Lite
         /// </summary>
         public App()
         {
+            HyperMedia_Lite.Helpers.DebugLog.WriteStartupStep("App ctor begin");
             this.InitializeComponent();
+            HyperMedia_Lite.Helpers.DebugLog.WriteStartupStep("App ctor InitializeComponent done");
             this.Suspending += OnSuspending;
+            HyperMedia_Lite.Helpers.DebugLog.WriteStartupStep("Suspending subscribed");
+            this.UnhandledException += OnUnhandledException;
+            HyperMedia_Lite.Helpers.DebugLog.WriteStartupStep("UnhandledException subscribed");
+        }
+
+        private void OnUnhandledException(object sender, Windows.UI.Xaml.UnhandledExceptionEventArgs e)
+        {
+            // 记录异常，便于定位低版本系统上的兼容性崩溃。
+            try
+            {
+                var ex = e.Exception;
+                HyperMedia_Lite.Helpers.DebugLog.WriteStartupStep("CRASH: " +
+                    (ex == null ? "unknown" : ex.ToString()));
+            }
+            catch { }
         }
 
         /// <summary>
@@ -42,6 +59,9 @@ namespace HyperMedia_Lite
         /// <param name="e">有关启动请求和过程的详细信息。</param>
         protected override void OnLaunched(LaunchActivatedEventArgs e)
         {
+            HyperMedia_Lite.Helpers.DebugLog.WriteStartupStep("OnLaunched entered");
+            LogStartup("OnLaunched begin");
+
             Frame rootFrame = Window.Current.Content as Frame;
 
             // 不要在窗口已包含内容时重复应用程序初始化，
@@ -56,19 +76,36 @@ namespace HyperMedia_Lite
                 // 将框架放在当前窗口中
                 Window.Current.Content = rootFrame;
 
+                LogStartup("frame created, applying theme");
                 // 应用主题与强调色（默认跟随系统）
                 ThemeService.Load();
+                LogStartup("theme applied");
             }
 
             if (e.PrelaunchActivated == false)
             {
                 if (rootFrame.Content == null)
                 {
+                    LogStartup("navigating to MainPage");
                     rootFrame.Navigate(typeof(MainPage), e.Arguments);
+                    LogStartup("MainPage navigated");
                 }
                 // 确保当前窗口处于活动状态
                 Window.Current.Activate();
+                LogStartup("window activated");
             }
+        }
+
+        private static void LogStartup(string step)
+        {
+            try
+            {
+                string info = $"{step} | os={Windows.System.Profile.AnalyticsInfo.VersionInfo.DeviceFamilyVersion}" +
+                    $" | contractV2={HyperMedia_Lite.Helpers.UwpCompat.HasContractV2}" +
+                    $" | mediaElement={HyperMedia_Lite.Helpers.UwpCompat.HasMediaPlayerElement}";
+                HyperMedia_Lite.Helpers.DebugLog.WriteStartupStep(info);
+            }
+            catch { }
         }
 
         /// <summary>

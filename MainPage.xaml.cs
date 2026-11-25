@@ -39,20 +39,26 @@ namespace HyperMedia_Lite
         private double _slideElapsed;
         private int _photoLoadId;
         private DispatcherTimer _slideTimer;
-        private MediaPlayerElement _videoElement;
+        private FrameworkElement _videoElement;
         private MediaElement _legacyVideoElement;
         private MediaItem _externalVideoItem;
         private DispatcherTimer _videoIdleTimer;
 
         public MainPage()
         {
+            HyperMedia_Lite.Helpers.DebugLog.WriteStartupStep("MainPage ctor begin");
             InitializeComponent();
+            HyperMedia_Lite.Helpers.DebugLog.WriteStartupStep("MainPage InitializeComponent done");
 
+            HyperMedia_Lite.Helpers.DebugLog.WriteStartupStep("MainPage before MainViewModel");
             _viewModel = App.MainViewModel;
+            HyperMedia_Lite.Helpers.DebugLog.WriteStartupStep("MainPage after MainViewModel");
             DataContext = _viewModel;
 
             // 14393+：动态创建 MediaPlayerElement 并绑定同一个 MediaPlayer；10240 上不存在该类型。
+            HyperMedia_Lite.Helpers.DebugLog.WriteStartupStep("MainPage before SetupVideoSurface");
             SetupVideoSurface();
+            HyperMedia_Lite.Helpers.DebugLog.WriteStartupStep("MainPage after SetupVideoSurface");
 
             _viewModel.PhotoRequested += OnPhotoRequested;
             _viewModel.PlayerRequested += OnPlayerRequested;
@@ -67,7 +73,9 @@ namespace HyperMedia_Lite
         private async void MainPage_Loaded(object sender, RoutedEventArgs e)
         {
             Loaded -= MainPage_Loaded;
+            HyperMedia_Lite.Helpers.DebugLog.WriteStartupStep("MainPage_Loaded begin");
             await _viewModel.InitializeAsync();
+            HyperMedia_Lite.Helpers.DebugLog.WriteStartupStep("MainPage initialized");
 
             // 从编辑页返回时恢复图片查看器。
             if (App.PhotoToRestore != null)
@@ -327,15 +335,37 @@ namespace HyperMedia_Lite
                 return;
             }
 
-            _videoElement = new MediaPlayerElement
+            // 用反射构造，避免在最低版本 10240 的编译单元中直接引用 14393+ 类型。
+            try
             {
-                AreTransportControlsEnabled = false,
+                var type = Type.GetType(
+                    "Windows.UI.Xaml.Controls.MediaPlayerElement, Windows.UI.Xaml, ContentType=WindowsRuntime");
+                if (type != null)
+                {
+                    var element = (FrameworkElement)Activator.CreateInstance(type);
+                    type.GetProperty("AreTransportControlsEnabled")?.SetValue(element, false);
+                    type.GetProperty("Stretch")?.SetValue(element, Windows.UI.Xaml.Media.Stretch.Uniform);
+                    type.GetProperty("HorizontalAlignment")?.SetValue(element, HorizontalAlignment.Stretch);
+                    type.GetProperty("VerticalAlignment")?.SetValue(element, VerticalAlignment.Stretch);
+                    type.GetMethod("SetMediaPlayer")?.Invoke(element, new object[] { _playback.Player });
+                    _videoElement = element;
+                    VideoHost.Children.Add(element);
+                    return;
+                }
+            }
+            catch (Exception)
+            {
+                // 回退到 MediaElement 后端
+            }
+
+            _legacyVideoElement = new MediaElement
+            {
                 Stretch = Windows.UI.Xaml.Media.Stretch.Uniform,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 VerticalAlignment = VerticalAlignment.Stretch
             };
-            _videoElement.SetMediaPlayer(_playback.Player);
-            VideoHost.Children.Add(_videoElement);
+            VideoHost.Children.Add(_legacyVideoElement);
+            _playback.VideoBackend = new MediaElementVideoBackend(_legacyVideoElement);
         }
 
         private void OnPlayerRequested(object sender, MediaItem item)
