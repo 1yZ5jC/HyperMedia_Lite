@@ -33,6 +33,11 @@ namespace HyperMedia_Lite.Services
 
         public static AppTheme CurrentTheme { get; private set; } = AppTheme.System;
 
+        /// <summary>当前实际是否为深色（含跟随系统）。</summary>
+        public static bool IsDarkMode =>
+            CurrentTheme == AppTheme.Dark
+            || (CurrentTheme == AppTheme.System && Application.Current.RequestedTheme == ApplicationTheme.Dark);
+
         public static AccentSource CurrentAccentSource { get; private set; } = AccentSource.System;
 
         public static Color? CustomAccent { get; private set; }

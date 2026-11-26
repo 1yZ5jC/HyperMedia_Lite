@@ -6,8 +6,10 @@ using System.Collections.Generic;
 using Windows.Storage;
 using Windows.Storage.Pickers;
 using Windows.UI;
+using Windows.UI.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
 
 namespace HyperMedia_Lite
@@ -18,11 +20,16 @@ namespace HyperMedia_Lite
     public sealed partial class SettingsPage : Page
     {
         private readonly MainViewModel _viewModel = App.MainViewModel;
+        private bool _isWindowActive = true;
 
         public SettingsPage()
         {
             InitializeComponent();
             DataContext = _viewModel;
+
+            try { Window.Current.SetTitleBar(AppTitleBar); } catch { }
+            UpdateTitleAppearance();
+            Window.Current.CoreWindow.Activated += CoreWindow_Activated;
 
             SystemMediaControlsSwitch.IsOn = SystemMediaControlsService.IsEnabledByUser;
 
@@ -85,6 +92,7 @@ namespace HyperMedia_Lite
                 && Enum.TryParse(tag, out AppTheme theme))
             {
                 ThemeService.SetTheme(theme);
+                UpdateTitleAppearance();
             }
         }
 
@@ -128,6 +136,31 @@ namespace HyperMedia_Lite
             {
                 await SystemMediaControlsService.Current.UpdateAsync(null, false);
             }
+        }
+
+        protected override void OnNavigatedFrom(NavigationEventArgs e)
+        {
+            Window.Current.CoreWindow.Activated -= CoreWindow_Activated;
+            base.OnNavigatedFrom(e);
+        }
+
+        private void CoreWindow_Activated(CoreWindow sender, WindowActivatedEventArgs args)
+        {
+            bool active = args.WindowActivationState != CoreWindowActivationState.Deactivated;
+            if (active == _isWindowActive) return;
+            _isWindowActive = active;
+            UpdateTitleAppearance();
+        }
+
+        private void UpdateTitleAppearance()
+        {
+            try
+            {
+                AppTitleText.Foreground = new SolidColorBrush(_isWindowActive
+                    ? (ThemeService.IsDarkMode ? Colors.White : Colors.Black)
+                    : Colors.Gray);
+            }
+            catch { }
         }
 
         private void Back_Click(object sender, RoutedEventArgs e)

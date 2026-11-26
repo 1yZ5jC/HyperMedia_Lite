@@ -67,6 +67,17 @@ namespace HyperMedia_Lite
             HyperMedia_Lite.Helpers.DebugLog.WriteStartupStep("OnLaunched entered");
             LogStartup("OnLaunched begin");
 
+            // 自定义标题栏：只在启动时设置一次，之后绝不改动（运行时切换会导致布局错乱）。
+            try
+            {
+                CoreApplication.GetCurrentView().TitleBar.ExtendViewIntoTitleBar = true;
+                LogStartup("title bar extended");
+            }
+            catch (Exception ex)
+            {
+                LogStartup("title bar extend failed: " + ex.Message);
+            }
+
             Frame rootFrame = Window.Current.Content as Frame;
 
             // 不要在窗口已包含内容时重复应用程序初始化，

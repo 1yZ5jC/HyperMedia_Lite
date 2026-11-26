@@ -401,6 +401,14 @@ namespace HyperMedia_Lite.ViewModels
                 return;
             }
 
+            // 再次点击正在播放的同一项时不要重建播放源：
+            // 重复赋值 MediaPlayer.Source 会抛异常并导致崩溃，只需重新打开播放界面。
+            if (_playback.CurrentItem == item)
+            {
+                PlayerRequested?.Invoke(this, item);
+                return;
+            }
+
             var queue = _allItems.Where(i => i.Kind == item.Kind).ToList();
             await _playback.PlayQueueAsync(queue, item);
             PlayerRequested?.Invoke(this, item);

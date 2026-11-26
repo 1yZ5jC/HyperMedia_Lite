@@ -292,13 +292,24 @@
             </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
 
+        <Grid.RowDefinitions>
+            <RowDefinition Height="32"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition x:Name="RailColumn" Width="72"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
+        <!-- 自定义标题栏：右侧预留系统按钮空间，播放时变黑 -->
+        <Grid x:Name="AppTitleBar" Grid.Row="0" Grid.ColumnSpan="2" Height="32"
+              Padding="16,0,140,0" Background="{StaticResource SurfaceBrush}">
+            <TextBlock x:Name="AppTitleText" Text="HyperMedia" FontSize="12"
+                       Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+        </Grid>
+
         <!-- ==================== 左侧窄导航栏（Groove 风格） ==================== -->
-        <Grid Grid.Column="0" Background="{StaticResource NavBackgroundBrush}">
+        <Grid Grid.Row="1" Grid.Column="0" Background="{StaticResource NavBackgroundBrush}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
@@ -349,7 +360,7 @@
         </Grid>
 
         <!-- ==================== 内容区 ==================== -->
-        <Grid Grid.Column="1">
+        <Grid Grid.Row="1" Grid.Column="1">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
@@ -831,9 +842,9 @@
         </Grid>
 
         <!-- ==================== 汉堡菜单展开面板 ==================== -->
-        <Rectangle x:Name="ClickAway" Grid.ColumnSpan="2" Fill="#00000000"
+        <Rectangle x:Name="ClickAway" Grid.Row="1" Grid.ColumnSpan="2" Fill="#00000000"
                    Visibility="Collapsed" Tapped="ClickAway_Tapped"/>
-        <Grid x:Name="MenuOverlay" Grid.ColumnSpan="2" Width="260" HorizontalAlignment="Left"
+        <Grid x:Name="MenuOverlay" Grid.Row="1" Grid.ColumnSpan="2" Width="260" HorizontalAlignment="Left"
               Visibility="Collapsed" Background="{StaticResource NavBackgroundBrush}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
@@ -902,7 +913,7 @@
         </Grid>
 
         <!-- ==================== 正在播放（全屏浮层） ==================== -->
-        <Grid x:Name="PlayerOverlay" Grid.ColumnSpan="2" Visibility="Collapsed"
+        <Grid x:Name="PlayerOverlay" Grid.Row="1" Grid.ColumnSpan="2" Visibility="Collapsed"
               Background="{StaticResource NowPlayingBackdropBrush}"
               PointerMoved="PlayerOverlay_PointerMoved">
             <!-- 14393+ 时在代码中动态注入 MediaPlayerElement；10240 上该 XAML 类型不存在 -->
@@ -1140,6 +1151,12 @@
                             Visibility="{Binding IsCurrentVideo, Converter={StaticResource BoolToVisibility}}"
                             AutomationProperties.Name="字幕">
                         <FontIcon Glyph="&#xE8BA;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="White"/>
+                    </Button>
+                    <Button Style="{StaticResource OverlayIconButtonStyle}" Width="40" Height="36"
+                            ToolTipService.ToolTip="画中画" Click="PictureInPicture_Click"
+                            Visibility="{Binding IsCurrentVideo, Converter={StaticResource BoolToVisibility}}"
+                            AutomationProperties.Name="画中画">
+                        <FontIcon Glyph="&#xE7F4;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="White"/>
                     </Button>
                 </StackPanel>
             </Grid>
@@ -1379,7 +1396,7 @@
         </Grid>
 
         <!-- ==================== 图片灯箱（参考 HyperViewer） ==================== -->
-        <Grid x:Name="PhotoOverlay" Grid.ColumnSpan="2" Visibility="Collapsed" Background="#FF000000">
+        <Grid x:Name="PhotoOverlay" Grid.Row="1" Grid.ColumnSpan="2" Visibility="Collapsed" Background="#FF000000">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="0" x:Name="InfoColumn"/>
@@ -1607,7 +1624,7 @@
         </Grid>
 
         <!-- 歌词选择面板：覆盖在「正在播放」之上，关闭后回到正在播放 -->
-        <Grid x:Name="LyricPickerOverlay" Grid.ColumnSpan="2" Visibility="Collapsed"
+        <Grid x:Name="LyricPickerOverlay" Grid.Row="1" Grid.ColumnSpan="2" Visibility="Collapsed"
               Background="#FF1E1E1E">
             <Frame x:Name="LyricPickerFrame"/>
         </Grid>

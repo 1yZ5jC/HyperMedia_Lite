@@ -8,12 +8,20 @@
 
     <Grid Background="{StaticResource PageBackgroundBrush}">
         <Grid.RowDefinitions>
+            <RowDefinition Height="32"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- 标题栏 -->
-        <Grid Grid.Row="0" Height="72" Padding="24,0" Background="{StaticResource SurfaceBrush}">
+        <!-- 与主页一致的自定义标题栏 -->
+        <Grid x:Name="AppTitleBar" Grid.Row="0" Height="32"
+              Padding="16,0,140,0" Background="{StaticResource SurfaceBrush}">
+            <TextBlock x:Name="AppTitleText" Text="HyperMedia" FontSize="12"
+                       Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+        </Grid>
+
+        <!-- 页头 -->
+        <Grid Grid.Row="1" Height="72" Padding="24,0" Background="{StaticResource SurfaceBrush}">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <Button Width="40" Height="40" Padding="0" Margin="0,0,12,0"
                         Background="Transparent" BorderThickness="0"
@@ -26,7 +34,7 @@
             </StackPanel>
         </Grid>
 
-        <ScrollViewer Grid.Row="1" Padding="32,24">
+        <ScrollViewer Grid.Row="2" Padding="32,24">
             <StackPanel MaxWidth="760">
 
                 <!-- 媒体库 -->

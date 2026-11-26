@@ -10,6 +10,14 @@ namespace HyperMedia_Lite.Helpers
         public static bool HasContractV2 =>
             ApiInformation.IsApiContractPresent("Windows.Foundation.UniversalApiContract", 2);
 
+        public static bool HasContractV3 =>
+            ApiInformation.IsApiContractPresent("Windows.Foundation.UniversalApiContract", 3);
+
+        /// <summary>CompactOverlay 画中画模式（14393+）。</summary>
+        public static bool HasCompactOverlay =>
+            HasContractV3 && ApiInformation.IsEnumNamedValuePresent(
+                "Windows.UI.ViewManagement.ApplicationViewMode", "CompactOverlay");
+
         public static bool HasContractV4 =>
             ApiInformation.IsApiContractPresent("Windows.Foundation.UniversalApiContract", 4);
 

@@ -43,6 +43,7 @@ namespace HyperMedia_Lite
         private MediaElement _legacyVideoElement;
         private MediaItem _externalVideoItem;
         private DispatcherTimer _videoIdleTimer;
+        private bool _isWindowActive = true;
 
         public MainPage()
         {
@@ -80,6 +81,10 @@ namespace HyperMedia_Lite
             await _viewModel.InitializeAsync();
             HyperMedia_Lite.Helpers.DebugLog.WriteStartupStep("MainPage initialized");
 
+            // 自定义标题栏：整个应用生命周期只设置一次拖动区。
+            try { Window.Current.SetTitleBar(AppTitleBar); } catch { }
+            UpdateTitleBarAppearance();
+
         }
 
         protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -89,6 +94,10 @@ namespace HyperMedia_Lite
             UnsubscribeViewModel();
             SubscribeViewModel();
             PrintService.Register();
+
+            // 从设置 / 编辑页返回时重新接管标题栏拖动区。
+            try { Window.Current.SetTitleBar(AppTitleBar); } catch { }
+            UpdateTitleBarAppearance();
 
             // 从编辑页返回时恢复图片查看器（缓存复用时 Loaded 不会再触发）。
             if (App.PhotoToRestore != null)
@@ -109,6 +118,7 @@ namespace HyperMedia_Lite
             _viewModel.PlayerRequested += OnPlayerRequested;
             _viewModel.PropertyChanged += ViewModel_PropertyChanged;
             Window.Current.CoreWindow.KeyDown += CoreWindow_KeyDown;
+            Window.Current.CoreWindow.Activated += CoreWindow_Activated;
             Window.Current.SizeChanged += OnWindowSizeChanged;
         }
 
@@ -118,6 +128,7 @@ namespace HyperMedia_Lite
             _viewModel.PlayerRequested -= OnPlayerRequested;
             _viewModel.PropertyChanged -= ViewModel_PropertyChanged;
             Window.Current.CoreWindow.KeyDown -= CoreWindow_KeyDown;
+            Window.Current.CoreWindow.Activated -= CoreWindow_Activated;
             Window.Current.SizeChanged -= OnWindowSizeChanged;
         }
 
@@ -185,6 +196,7 @@ namespace HyperMedia_Lite
             {
                 CloseMenu();
             }
+            UpdateTitleBarAppearance();
         }
 
         private void NavList_ItemClick(object sender, ItemClickEventArgs e)
@@ -418,6 +430,7 @@ namespace HyperMedia_Lite
             }
             AudioPanel.Visibility = isVideo ? Visibility.Collapsed : Visibility.Visible;
             PlayerOverlay.Visibility = Visibility.Visible;
+            UpdateTitleBarAppearance();
 
             if (isVideo)
             {
@@ -489,6 +502,7 @@ namespace HyperMedia_Lite
         {
             _videoIdleTimer?.Stop();
             PlayerOverlay.Visibility = Visibility.Collapsed;
+            UpdateTitleBarAppearance();
         }
 
         private void ViewModel_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -497,7 +511,49 @@ namespace HyperMedia_Lite
             {
                 UpdateLyricHighlight();
             }
+            else if (e.PropertyName == nameof(MainViewModel.IsPlayerVisible))
+            {
+                UpdateTitleBarAppearance();
+            }
             // 逐字点亮由 LyricWord.IsSung 通过绑定驱动，不在此处操作 Inlines。
+        }
+
+        private void CoreWindow_Activated(CoreWindow sender, WindowActivatedEventArgs args)
+        {
+            bool active = args.WindowActivationState != CoreWindowActivationState.Deactivated;
+            _isWindowActive = active;
+            UpdateTitleBarAppearance();
+        }
+
+        /// <summary>
+        /// 播放 / 图片全屏时标题栏变黑，平时恢复普通底色；
+        /// 窗口失焦时标题文字转灰，获得焦点时恢复黑 / 白。
+        /// </summary>
+        private void UpdateTitleBarAppearance()
+        {
+            try
+            {
+                bool immersive = PlayerOverlay.Visibility == Visibility.Visible
+                    || PhotoOverlay.Visibility == Visibility.Visible
+                    || LyricPickerOverlay.Visibility == Visibility.Visible;
+
+                // 先设文字颜色：即使背景取色失败也不会让标题停在初始灰色。
+                // 黑底或深色主题下用白字，浅色主题下用黑字；失焦一律灰。
+                Windows.UI.Color activeColor = (immersive || ThemeService.IsDarkMode)
+                    ? Windows.UI.Colors.White
+                    : Windows.UI.Colors.Black;
+                AppTitleText.Foreground = new SolidColorBrush(_isWindowActive
+                    ? activeColor
+                    : Windows.UI.Colors.Gray);
+
+                Brush normalBrush = Application.Current.Resources.TryGetValue("SurfaceBrush", out object value)
+                    ? value as Brush
+                    : new SolidColorBrush(Windows.UI.Colors.Transparent);
+                AppTitleBar.Background = immersive
+                    ? new SolidColorBrush(Windows.UI.Colors.Black)
+                    : normalBrush;
+            }
+            catch { }
         }
 
         private void OnWindowSizeChanged(object sender, Windows.UI.Core.WindowSizeChangedEventArgs e)
@@ -668,6 +724,29 @@ namespace HyperMedia_Lite
             catch { }
         }
 
+        private async void PictureInPicture_Click(object sender, RoutedEventArgs e)
+        {
+            if (!UwpCompat.HasCompactOverlay) return;
+            try
+            {
+                var view = ApplicationView.GetForCurrentView();
+                if (view.ViewMode == ApplicationViewMode.CompactOverlay)
+                {
+                    await view.TryEnterViewModeAsync(ApplicationViewMode.Default);
+                }
+                else
+                {
+                    var preferences = ViewModePreferences.CreateDefault(ApplicationViewMode.CompactOverlay);
+                    preferences.CustomSize = new Windows.Foundation.Size(360, 240);
+                    await view.TryEnterViewModeAsync(ApplicationViewMode.CompactOverlay, preferences);
+                }
+                // 不改动 ExtendViewIntoTitleBar / SetTitleBar：那是视图级设置，
+                // 恢复失败会连带把普通窗口的标题栏也去掉。系统关闭按钮留在标题栏里，
+                // 与我们的控制栏不重叠。
+            }
+            catch { }
+        }
+
         private void Subtitle_Click(object sender, RoutedEventArgs e)
         {
             var menu = new MenuFlyout { Placement = FlyoutPlacementMode.Bottom };
@@ -728,6 +807,7 @@ namespace HyperMedia_Lite
             _photoItems = _viewModel.CurrentItems.Where(i => i.Kind == MediaKind.Photo).ToList();
             _photoIndex = _photoItems.IndexOf(item);
             PhotoOverlay.Visibility = Visibility.Visible;
+            UpdateTitleBarAppearance();
             Filmstrip.ItemsSource = _photoItems;
             if (_photoIndex >= 0 && _photoIndex < _photoItems.Count)
             {
@@ -1023,6 +1103,7 @@ namespace HyperMedia_Lite
         {
             StopSlideShow();
             PhotoOverlay.Visibility = Visibility.Collapsed;
+            UpdateTitleBarAppearance();
         }
 
         private void CoreWindow_KeyDown(CoreWindow sender, KeyEventArgs args)

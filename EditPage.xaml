@@ -27,12 +27,20 @@
             </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
         <Grid.RowDefinitions>
+            <RowDefinition Height="32"/>
             <RowDefinition Height="56"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
+        <!-- 与主页一致的自定义标题栏 -->
+        <Grid x:Name="AppTitleBar" Grid.Row="0" Height="32"
+              Padding="16,0,140,0" Background="{StaticResource SurfaceBrush}">
+            <TextBlock x:Name="AppTitleText" Text="HyperMedia" FontSize="12"
+                       Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+        </Grid>
+
         <!-- 顶部工具栏 -->
-        <Grid Grid.Row="0" Padding="12,0" Background="#FF000000">
+        <Grid Grid.Row="1" Padding="12,0" Background="#FF000000">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
@@ -45,8 +53,11 @@
                         Click="Back_Click">
                     <FontIcon Glyph="&#xE72B;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="White"/>
                 </Button>
-                <TextBlock Text="编辑图片" FontSize="15" Foreground="White"
-                           Margin="12,0,0,0" VerticalAlignment="Center"/>
+                <!-- 只把标题文字区设为拖动区，返回按钮留在外面保持可点击 -->
+                <Grid Padding="12,0,0,0"
+                      VerticalAlignment="Center">
+                    <TextBlock Text="编辑图片" FontSize="15" Foreground="White"/>
+                </Grid>
             </StackPanel>
             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                 <Button Width="34" Height="34" Style="{StaticResource EditorIconButtonStyle}"
@@ -82,7 +93,7 @@
             </StackPanel>
         </Grid>
 
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition x:Name="EditPanelColumn" Width="260"/>
                 <ColumnDefinition Width="*"/>

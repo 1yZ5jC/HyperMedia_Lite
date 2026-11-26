@@ -6,10 +6,13 @@ using System.Threading.Tasks;
 using Windows.Foundation;
 using Windows.Storage;
 using Windows.Storage.Pickers;
+using Windows.UI;
+using Windows.UI.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Controls.Primitives;
 using Windows.UI.Xaml.Input;
+using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Media.Imaging;
 using Windows.UI.Xaml.Navigation;
 
@@ -34,9 +37,33 @@ namespace HyperMedia_Lite
         private Point _cropStart;
         private Point _cropEnd;
 
+        private bool _isWindowActive = true;
+
         public EditPage()
         {
             InitializeComponent();
+            try { Window.Current.SetTitleBar(AppTitleBar); } catch { }
+            Window.Current.CoreWindow.Activated += CoreWindow_Activated;
+        }
+
+        protected override void OnNavigatedFrom(NavigationEventArgs e)
+        {
+            Window.Current.CoreWindow.Activated -= CoreWindow_Activated;
+            base.OnNavigatedFrom(e);
+        }
+
+        private void CoreWindow_Activated(CoreWindow sender, WindowActivatedEventArgs args)
+        {
+            bool active = args.WindowActivationState != CoreWindowActivationState.Deactivated;
+            if (active == _isWindowActive) return;
+            _isWindowActive = active;
+            try
+            {
+                AppTitleText.Foreground = new SolidColorBrush(_isWindowActive
+                    ? (ThemeService.IsDarkMode ? Colors.White : Colors.Black)
+                    : Colors.Gray);
+            }
+            catch { }
         }
 
         protected override async void OnNavigatedTo(NavigationEventArgs e)
