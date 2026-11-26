@@ -1497,15 +1497,20 @@
                             AutomationProperties.Name="打印当前图片">
                         <FontIcon Glyph="&#xE749;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
                     </Button>
+                    <Button x:Name="PhotoTileButton" Style="{StaticResource OverlayIconButtonStyle}" Margin="0,0,4,0"
+                            ToolTipService.ToolTip="把这些图片设为磁贴轮播" Click="PhotoTile_Click"
+                            AutomationProperties.Name="磁贴轮播">
+                        <FontIcon Glyph="&#xE91B;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
+                    </Button>
                     <Button x:Name="PhotoRotateBackButton" Style="{StaticResource OverlayIconButtonStyle}" Margin="0,0,4,0"
                             ToolTipService.ToolTip="逆时针旋转"
                             Click="RotateBack_Click" AutomationProperties.Name="逆时针旋转">
-                        <FontIcon Glyph="&#xE7AD;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
+                        <FontIcon Glyph="&#xE80D;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
                     </Button>
                     <Button x:Name="PhotoRotateButton" Style="{StaticResource OverlayIconButtonStyle}" Margin="0,0,4,0"
                             ToolTipService.ToolTip="顺时针旋转 (R)"
                             Click="Rotate_Click" AutomationProperties.Name="顺时针旋转">
-                        <FontIcon Glyph="&#xE7AD;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
+                        <FontIcon Glyph="&#xE80C;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
                     </Button>
                     <Button x:Name="FlipHButton" Style="{StaticResource OverlayIconButtonStyle}" Margin="0,0,4,0"
                             ToolTipService.ToolTip="水平翻转"

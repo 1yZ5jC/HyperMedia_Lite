@@ -147,6 +147,34 @@
                     </StackPanel>
                 </Border>
 
+                <!-- 动态磁贴 -->
+                <TextBlock Text="动态磁贴" FontSize="18" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}"/>
+                <Border Background="{StaticResource SurfaceBrush}" Padding="20" Margin="0,10,0,28">
+                    <StackPanel>
+                        <TextBlock Text="「正在播放」磁贴随切歌自动更新；图片轮播可随时启动，优先使用收藏图片"
+                                   FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
+                        <TextBlock Text="轮播间隔" FontSize="12" Margin="0,12,0,0"
+                                   Foreground="{StaticResource TextSecondaryBrush}"/>
+                        <ComboBox x:Name="TileIntervalCombo" Width="200" Margin="0,6,0,0"
+                                  SelectionChanged="TileIntervalCombo_SelectionChanged">
+                            <ComboBoxItem Content="系统默认（关闭后仍轮播）" Tag="0"/>
+                            <ComboBoxItem Content="5 秒" Tag="5"/>
+                            <ComboBoxItem Content="10 秒" Tag="10"/>
+                            <ComboBoxItem Content="30 秒" Tag="30"/>
+                            <ComboBoxItem Content="60 秒" Tag="60"/>
+                        </ComboBox>
+                        <TextBlock Text="自定义间隔只在应用运行时生效；系统默认由 Windows 控制节奏，关闭应用后仍轮播"
+                                   FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap"
+                                   Foreground="{StaticResource TextSecondaryBrush}"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                            <Button Content="开始图片轮播" Padding="14,6"
+                                    Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
+                                    BorderThickness="1" Click="StartPhotoTile_Click"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
                 <!-- 诊断 -->
                 <TextBlock Text="诊断" FontSize="18" FontWeight="SemiBold"
                            Foreground="{StaticResource TextPrimaryBrush}"/>
@@ -161,6 +189,9 @@
                             <Button Content="清理日志" Padding="14,6"
                                     Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
                                     BorderThickness="1" Click="ClearLog_Click"/>
+                            <Button Content="推送测试磁贴" Padding="14,6" Margin="8,0,0,0"
+                                    Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
+                                    BorderThickness="1" Click="TestTile_Click"/>
                         </StackPanel>
                         <TextBlock x:Name="LogStatusText" FontSize="11" Margin="0,8,0,0"
                                    Foreground="{StaticResource TextSecondaryBrush}"/>

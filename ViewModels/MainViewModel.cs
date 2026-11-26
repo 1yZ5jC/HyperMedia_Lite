@@ -79,6 +79,7 @@ namespace HyperMedia_Lite.ViewModels
         public RelayCommand MoveQueueDownCommand { get; }
         public RelayCommand ClearQueueCommand { get; }
         public RelayCommand ToggleQueuePanelCommand { get; }
+        public RelayCommand StartPhotoTileCommand { get; }
         public RelayCommand SeekToLyricCommand { get; }
         public RelayCommand CycleRateCommand { get; }
         public RelayCommand CreatePlaylistCommand { get; }
@@ -140,6 +141,7 @@ namespace HyperMedia_Lite.ViewModels
             });
             ClearQueueCommand = new RelayCommand(_ => _playback.Stop());
             ToggleQueuePanelCommand = new RelayCommand(_ => IsQueuePanelOpen = !IsQueuePanelOpen);
+            StartPhotoTileCommand = new RelayCommand(_ => _ = StartPhotoTileAsync());
             CreatePlaylistCommand = new RelayCommand(async parameter =>
             {
                 string name = parameter as string;
@@ -718,12 +720,14 @@ namespace HyperMedia_Lite.ViewModels
             OnPropertyChanged(nameof(Volume));
             OnPropertyChanged(nameof(RateText));
             SystemMediaControlsService.Current.UpdateStatus(_playback.IsPlaying);
+            TileService.UpdatePlayStatus(_playback.IsPlaying);
             UpdateLyricAndSubtitle(_playback.Position.TotalSeconds);
         }
 
         private void OnPlaybackItemChanged(object sender, EventArgs e)
         {
             _activeItem = _playback.CurrentItem;
+            _ = TileService.UpdateNowPlayingAsync(_activeItem, _playback.IsPlaying);
             _ = ApplyCoverAccentAsync(_activeItem);
             _ = SystemMediaControlsService.Current.UpdateAsync(_activeItem, _playback.IsPlaying);
             _ = LoadLyricsAsync(_activeItem);
@@ -812,6 +816,29 @@ namespace HyperMedia_Lite.ViewModels
             if (_activeItem == item)
             {
                 ThemeService.SetDynamicAccent(color);
+            }
+        }
+
+        private async System.Threading.Tasks.Task StartPhotoTileAsync()
+        {
+            var photos = _allItems.Where(i => i.Kind == MediaKind.Photo).ToList();
+            var favorites = photos.Where(i => i.IsFavorite).ToList();
+            var chosen = favorites.Count > 0 ? favorites : photos;
+            if (chosen.Count == 0)
+            {
+                StatusMessage = "媒体库里没有可用图片";
+                return;
+            }
+
+            if (TileService.RotationInterval > 0)
+            {
+                await TileService.StartTimedRotationAsync(chosen);
+                StatusMessage = $"已按 {TileService.RotationInterval} 秒间隔开始轮播（应用运行时）";
+            }
+            else
+            {
+                await TileService.StartPhotoSlideshowAsync(chosen);
+                StatusMessage = $"已将 {Math.Min(chosen.Count, 12)} 张图片设为磁贴轮播（系统默认间隔）";
             }
         }
 

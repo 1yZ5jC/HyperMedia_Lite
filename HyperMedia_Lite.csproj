@@ -171,6 +171,7 @@
     <Compile Include="Services\LyricPickerService.cs" />
     <Compile Include="Services\OnlineLyrics.cs" />
     <Compile Include="Services\PrintService.cs" />
+    <Compile Include="Services\TileService.cs" />
     <Compile Include="Services\SubtitleParser.cs" />
     <Compile Include="Services\SubtitleService.cs" />
     <Compile Include="Services\SystemMediaControlsService.cs" />

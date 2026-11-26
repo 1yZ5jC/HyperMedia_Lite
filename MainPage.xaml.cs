@@ -846,6 +846,21 @@ namespace HyperMedia_Lite
         private static MediaItem GetQueueItem(object sender) =>
             (sender as FrameworkElement)?.DataContext as MediaItem;
 
+        private async void PhotoTile_Click(object sender, RoutedEventArgs e)
+        {
+            if (_photoItems.Count == 0) return;
+            PhotoTileButton.IsEnabled = false;
+            try
+            {
+                await TileService.StartPhotoSlideshowAsync(_photoItems);
+            }
+            catch { }
+            finally
+            {
+                PhotoTileButton.IsEnabled = true;
+            }
+        }
+
         private void QueueClickAway_PointerPressed(object sender, Windows.UI.Xaml.Input.PointerRoutedEventArgs e)
         {
             _viewModel.IsQueuePanelOpen = false;

@@ -49,6 +49,25 @@ namespace HyperMedia_Lite
                     break;
                 }
             }
+
+            string interval = TileService.RotationInterval.ToString();
+            foreach (var item in TileIntervalCombo.Items)
+            {
+                if (item is ComboBoxItem comboItem && comboItem.Tag is string tag && tag == interval)
+                {
+                    TileIntervalCombo.SelectedItem = comboItem;
+                    break;
+                }
+            }
+        }
+
+        private void TileIntervalCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (TileIntervalCombo.SelectedItem is ComboBoxItem item && item.Tag is string tag
+                && int.TryParse(tag, out int seconds))
+            {
+                TileService.RotationInterval = seconds;
+            }
         }
 
         private void AccentSourceCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -153,6 +172,17 @@ namespace HyperMedia_Lite
             {
                 LogStatusText.Text = "导出失败：" + ex.Message;
             }
+        }
+
+        private void StartPhotoTile_Click(object sender, RoutedEventArgs e)
+        {
+            _viewModel.StartPhotoTileCommand.Execute(null);
+        }
+
+        private void TestTile_Click(object sender, RoutedEventArgs e)
+        {
+            TileService.PushTestTile();
+            LogStatusText.Text = "已推送测试磁贴，请到开始菜单查看";
         }
 
         private async void ClearLog_Click(object sender, RoutedEventArgs e)
