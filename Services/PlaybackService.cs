@@ -322,6 +322,71 @@ namespace HyperMedia_Lite.Services
             await LoadCurrentAsync();
         }
 
+        /// <summary>跳到队列中的指定项并播放。</summary>
+        public async System.Threading.Tasks.Task PlayQueueIndexAsync(int index)
+        {
+            if (index < 0 || index >= Queue.Count) return;
+            CurrentIndex = index;
+            await LoadCurrentAsync();
+        }
+
+        /// <summary>从队列移除指定项，妥善处理当前项被移除的情况。</summary>
+        public async System.Threading.Tasks.Task RemoveFromQueueAsync(int index)
+        {
+            if (index < 0 || index >= Queue.Count) return;
+
+            bool isCurrent = index == CurrentIndex;
+            Queue.RemoveAt(index);
+
+            if (Queue.Count == 0)
+            {
+                Stop();
+                return;
+            }
+
+            if (index < CurrentIndex)
+            {
+                CurrentIndex--;
+            }
+            else if (isCurrent)
+            {
+                if (CurrentIndex >= Queue.Count) CurrentIndex = Queue.Count - 1;
+                await LoadCurrentAsync();
+            }
+        }
+
+        /// <summary>在队列中移动一项（上移 / 下移），保持当前项指向正确。</summary>
+        public void MoveQueueItem(int from, int to)
+        {
+            if (from < 0 || from >= Queue.Count || to < 0 || to >= Queue.Count || from == to) return;
+
+            var item = Queue[from];
+            Queue.RemoveAt(from);
+            Queue.Insert(to, item);
+
+            if (from == CurrentIndex)
+            {
+                CurrentIndex = to;
+            }
+            else if (from < CurrentIndex && to >= CurrentIndex)
+            {
+                CurrentIndex--;
+            }
+            else if (from > CurrentIndex && to <= CurrentIndex)
+            {
+                CurrentIndex++;
+            }
+            RefreshQueueFlags();
+        }
+
+        private void RefreshQueueFlags()
+        {
+            for (int i = 0; i < Queue.Count; i++)
+            {
+                Queue[i].IsCurrentQueueItem = i == CurrentIndex;
+            }
+        }
+
         private async System.Threading.Tasks.Task LoadCurrentAsync()
         {
             var item = CurrentItem;
@@ -332,6 +397,7 @@ namespace HyperMedia_Lite.Services
             }
 
             _playbackItem = null;
+            RefreshQueueFlags();
 
             try
             {
@@ -516,6 +582,7 @@ namespace HyperMedia_Lite.Services
             _player.Source = null;
             _playbackItem = null;
             CurrentIndex = -1;
+            RefreshQueueFlags();
             Queue.Clear();
             RaiseItemChanged();
             RaiseStateChanged();

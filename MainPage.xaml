@@ -1110,6 +1110,11 @@
                             AutomationProperties.Name="添加到播放列表">
                         <FontIcon Glyph="&#xE728;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="White"/>
                     </Button>
+                    <Button Style="{StaticResource OverlayIconButtonStyle}" Width="40" Height="36"
+                            ToolTipService.ToolTip="播放队列" Command="{Binding ToggleQueuePanelCommand}"
+                            AutomationProperties.Name="播放队列">
+                        <FontIcon Glyph="&#xEA37;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="White"/>
+                    </Button>
                     <!-- 歌词按钮只对音频有意义，视频播放页隐藏 -->
                     <Button Style="{StaticResource OverlayIconButtonStyle}" Width="40" Height="36"
                             ToolTipService.ToolTip="全部歌词（点击跳转）" Click="ToggleFullLyric_Click"
@@ -1274,6 +1279,102 @@
                     <TextBlock Grid.Column="2" Text="{Binding TotalTimeText}" FontSize="11" Foreground="White"
                                Margin="8,0,0,0" VerticalAlignment="Center"/>
                 </Grid>
+            </Grid>
+
+            <!-- 点击面板外部收起队列 -->
+            <Rectangle x:Name="QueueClickAway" Fill="#00000000"
+                       Visibility="{Binding IsQueuePanelOpen, Converter={StaticResource BoolToVisibility}}"
+                       PointerPressed="QueueClickAway_PointerPressed"/>
+
+            <!-- 播放队列面板：播放时查看与管理队列 -->
+            <Grid x:Name="QueuePanel" HorizontalAlignment="Right" VerticalAlignment="Stretch"
+                  Width="340" Margin="0,64,0,118" RequestedTheme="Dark"
+                  Background="#FF1E1E1E" BorderBrush="#33FFFFFF" BorderThickness="1"
+                  Visibility="{Binding IsQueuePanelOpen, Converter={StaticResource BoolToVisibility}}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="48"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid Grid.Row="0" Padding="12,0" Background="#99000000">
+                    <TextBlock Text="播放队列" FontSize="15" FontWeight="SemiBold"
+                               Foreground="White" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding Queue.Count}" FontSize="12" Foreground="#AAFFFFFF"
+                               HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,46,0"/>
+                    <Button Width="34" Height="32" Padding="0" HorizontalAlignment="Right"
+                            Style="{StaticResource OverlayIconButtonStyle}"
+                            Command="{Binding ToggleQueuePanelCommand}" AutomationProperties.Name="关闭队列">
+                        <FontIcon Glyph="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="13"/>
+                    </Button>
+                </Grid>
+                <ListView Grid.Row="1" x:Name="QueueList" ItemsSource="{Binding Queue}"
+                          SelectionMode="None" Padding="4" Background="Transparent"
+                          HorizontalContentAlignment="Stretch">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Padding="8,7" MinHeight="56">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <!-- 当前播放项高亮 -->
+                                <Border Grid.ColumnSpan="2" Background="#2BFFFFFF" IsHitTestVisible="False"
+                                        Visibility="{Binding IsCurrentQueueItem, Converter={StaticResource BoolToVisibility}}"/>
+                                <Border Width="3" HorizontalAlignment="Left" Background="{StaticResource AccentBrush}"
+                                        IsHitTestVisible="False"
+                                        Visibility="{Binding IsCurrentQueueItem, Converter={StaticResource BoolToVisibility}}"/>
+                                <StackPanel Grid.Column="0" Margin="11,0,6,0" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Title}" FontSize="13" Foreground="White"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="{Binding Subtitle}" FontSize="11" Foreground="#AAFFFFFF"
+                                               Margin="0,3,0,0" TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"
+                                            HorizontalAlignment="Right">
+                                    <Button Width="28" Height="28" Padding="0" Margin="1,0"
+                                            Background="Transparent"
+                                            Style="{StaticResource OverlayIconButtonStyle}"
+                                            Click="QueuePlay_Click" ToolTipService.ToolTip="播放"
+                                            AutomationProperties.Name="播放此曲">
+                                        <FontIcon Glyph="&#xE768;" FontFamily="Segoe MDL2 Assets" FontSize="11"/>
+                                    </Button>
+                                    <Button Width="28" Height="28" Padding="0" Margin="1,0"
+                                            Background="Transparent"
+                                            Style="{StaticResource OverlayIconButtonStyle}"
+                                            Click="QueueUp_Click" ToolTipService.ToolTip="上移"
+                                            AutomationProperties.Name="上移">
+                                        <FontIcon Glyph="&#xE70E;" FontFamily="Segoe MDL2 Assets" FontSize="11"/>
+                                    </Button>
+                                    <Button Width="28" Height="28" Padding="0" Margin="1,0"
+                                            Background="Transparent"
+                                            Style="{StaticResource OverlayIconButtonStyle}"
+                                            Click="QueueDown_Click" ToolTipService.ToolTip="下移"
+                                            AutomationProperties.Name="下移">
+                                        <FontIcon Glyph="&#xE70D;" FontFamily="Segoe MDL2 Assets" FontSize="11"/>
+                                    </Button>
+                                    <Button Width="28" Height="28" Padding="0" Margin="1,0"
+                                            Background="Transparent"
+                                            Style="{StaticResource OverlayIconButtonStyle}"
+                                            Click="QueueRemove_Click" ToolTipService.ToolTip="移除"
+                                            AutomationProperties.Name="移除">
+                                        <FontIcon Glyph="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="11"/>
+                                    </Button>
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+                <Border Grid.Row="2" Padding="10" Background="#99000000">
+                    <Button Content="清空队列" HorizontalAlignment="Stretch" Height="34"
+                            Command="{Binding ClearQueueCommand}" Background="Transparent"
+                            Foreground="White" BorderThickness="1"/>
+                </Border>
             </Grid>
         </Grid>
 

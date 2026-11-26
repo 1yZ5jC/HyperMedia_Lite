@@ -843,6 +843,38 @@ namespace HyperMedia_Lite
             }
         }
 
+        private static MediaItem GetQueueItem(object sender) =>
+            (sender as FrameworkElement)?.DataContext as MediaItem;
+
+        private void QueueClickAway_PointerPressed(object sender, Windows.UI.Xaml.Input.PointerRoutedEventArgs e)
+        {
+            _viewModel.IsQueuePanelOpen = false;
+        }
+
+        private void QueuePlay_Click(object sender, RoutedEventArgs e)
+        {
+            var item = GetQueueItem(sender);
+            if (item != null) _viewModel.PlayQueueItemCommand.Execute(item);
+        }
+
+        private void QueueUp_Click(object sender, RoutedEventArgs e)
+        {
+            var item = GetQueueItem(sender);
+            if (item != null) _viewModel.MoveQueueUpCommand.Execute(item);
+        }
+
+        private void QueueDown_Click(object sender, RoutedEventArgs e)
+        {
+            var item = GetQueueItem(sender);
+            if (item != null) _viewModel.MoveQueueDownCommand.Execute(item);
+        }
+
+        private void QueueRemove_Click(object sender, RoutedEventArgs e)
+        {
+            var item = GetQueueItem(sender);
+            if (item != null) _viewModel.RemoveQueueItemCommand.Execute(item);
+        }
+
         private void Rotate_Click(object sender, RoutedEventArgs e)
         {
             _photoRotation = (_photoRotation + 90) % 360;

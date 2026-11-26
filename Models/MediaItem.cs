@@ -25,6 +25,7 @@ namespace HyperMedia_Lite.Models
     public sealed class MediaItem : BindableBase
     {
         private bool _isFavorite;
+        private bool _isCurrentQueueItem;
         private BitmapImage _thumbnail;
         private TimeSpan _duration;
         private string _durationText = string.Empty;
@@ -112,6 +113,13 @@ namespace HyperMedia_Lite.Models
         {
             get => _isFavorite;
             set => SetProperty(ref _isFavorite, value);
+        }
+
+        /// <summary>是否正在播放（用于播放队列面板高亮）。</summary>
+        public bool IsCurrentQueueItem
+        {
+            get => _isCurrentQueueItem;
+            set => SetProperty(ref _isCurrentQueueItem, value);
         }
 
         /// <summary>

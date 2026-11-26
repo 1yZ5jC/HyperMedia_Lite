@@ -73,6 +73,12 @@ namespace HyperMedia_Lite.ViewModels
         public RelayCommand ToggleDesktopLyricsCommand { get; }
         public RelayCommand SelectEmbeddedSubtitleCommand { get; }
         public RelayCommand ClearSubtitleCommand { get; }
+        public RelayCommand PlayQueueItemCommand { get; }
+        public RelayCommand RemoveQueueItemCommand { get; }
+        public RelayCommand MoveQueueUpCommand { get; }
+        public RelayCommand MoveQueueDownCommand { get; }
+        public RelayCommand ClearQueueCommand { get; }
+        public RelayCommand ToggleQueuePanelCommand { get; }
         public RelayCommand SeekToLyricCommand { get; }
         public RelayCommand CycleRateCommand { get; }
         public RelayCommand CreatePlaylistCommand { get; }
@@ -110,6 +116,30 @@ namespace HyperMedia_Lite.ViewModels
                 }
             });
             ClearSubtitleCommand = new RelayCommand(_ => ClearSubtitles());
+            PlayQueueItemCommand = new RelayCommand(item =>
+            {
+                if (item is MediaItem media) _ = _playback.PlayQueueIndexAsync(_playback.Queue.IndexOf(media));
+                else if (item is int index) _ = _playback.PlayQueueIndexAsync(index);
+            });
+            RemoveQueueItemCommand = new RelayCommand(item =>
+            {
+                if (item is MediaItem media) _ = _playback.RemoveFromQueueAsync(_playback.Queue.IndexOf(media));
+                else if (item is int index) _ = _playback.RemoveFromQueueAsync(index);
+            });
+            MoveQueueUpCommand = new RelayCommand(item =>
+            {
+                int index = item is MediaItem media ? _playback.Queue.IndexOf(media)
+                    : item is int i ? i : -1;
+                if (index > 0) _playback.MoveQueueItem(index, index - 1);
+            });
+            MoveQueueDownCommand = new RelayCommand(item =>
+            {
+                int index = item is MediaItem media ? _playback.Queue.IndexOf(media)
+                    : item is int i ? i : -1;
+                if (index >= 0 && index < _playback.Queue.Count - 1) _playback.MoveQueueItem(index, index + 1);
+            });
+            ClearQueueCommand = new RelayCommand(_ => _playback.Stop());
+            ToggleQueuePanelCommand = new RelayCommand(_ => IsQueuePanelOpen = !IsQueuePanelOpen);
             CreatePlaylistCommand = new RelayCommand(async parameter =>
             {
                 string name = parameter as string;
@@ -1190,6 +1220,17 @@ namespace HyperMedia_Lite.ViewModels
         }
 
         public bool IsPlayOrderVisible => IsCurrentAudio && !IsCompact;
+
+        private bool _isQueuePanelOpen;
+        public bool IsQueuePanelOpen
+        {
+            get => _isQueuePanelOpen;
+            set => SetProperty(ref _isQueuePanelOpen, value);
+        }
+
+        public ObservableCollection<MediaItem> Queue => _playback.Queue;
+        public MediaItem CurrentQueueItem => _playback.CurrentItem;
+        public int CurrentQueueIndex => _playback.CurrentIndex;
 
         public IReadOnlyList<SubtitleLine> Subtitles => _subtitles;
 
