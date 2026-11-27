@@ -11,6 +11,7 @@
 
     <Page.Resources>
         <helpers:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
+        <helpers:MediaKindToVisibilityConverter x:Key="MediaKindToVisibility"/>
         <helpers:BoolToAccentBrushConverter x:Key="BoolToAccentBrush"/>
         <helpers:BoolToTextBrushConverter x:Key="BoolToTextBrush"/>
         <helpers:BoolToOpacityConverter x:Key="BoolToOpacityConverter"/>
@@ -20,6 +21,23 @@
         <helpers:BoolToLyricBrushConverter x:Key="BoolToLyricBrushConverter"/>
         <helpers:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
         <helpers:TextToVisibilityConverter x:Key="TextToVisibility"/>
+
+        <!-- 媒体库右键菜单 -->
+        <MenuFlyout x:Key="MediaContextMenu">
+            <MenuFlyoutItem Text="播放" Click="ContextPlay_Click"/>
+            <MenuFlyoutItem Text="加入播放队列" Click="ContextQueue_Click"
+                            Visibility="{Binding Kind, Converter={StaticResource MediaKindToVisibility}, ConverterParameter='Audio,Video'}"/>
+            <MenuFlyoutSeparator/>
+            <MenuFlyoutItem Text="编辑音乐信息" Click="EditMetadata_Click"
+                            Visibility="{Binding Kind, Converter={StaticResource MediaKindToVisibility}, ConverterParameter=Audio}"/>
+            <MenuFlyoutItem Text="编辑图片" Click="ContextEditPhoto_Click"
+                            Visibility="{Binding Kind, Converter={StaticResource MediaKindToVisibility}, ConverterParameter=Photo}"/>
+            <MenuFlyoutItem Text="设为磁贴轮播" Click="ContextTile_Click"
+                            Visibility="{Binding Kind, Converter={StaticResource MediaKindToVisibility}, ConverterParameter=Photo}"/>
+            <MenuFlyoutSeparator/>
+            <MenuFlyoutItem Text="{Binding FavoriteLabel}" Click="ContextFavorite_Click"/>
+            <MenuFlyoutItem Text="从媒体库移除" Click="ContextRemove_Click"/>
+        </MenuFlyout>
 
         <Style x:Key="NavItemStyle" TargetType="ListViewItem">
             <Setter Property="Padding" Value="0"/>
@@ -539,6 +557,9 @@
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="models:MediaItem">
                             <Grid Height="56" Padding="8,0">
+                                <Grid.ContextFlyout>
+                                    <StaticResource ResourceKey="MediaContextMenu"/>
+                                </Grid.ContextFlyout>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="40"/>
                                     <ColumnDefinition Width="*"/>
@@ -601,6 +622,9 @@
                     <GridView.ItemTemplate>
                         <DataTemplate x:DataType="models:MediaItem">
                             <Grid Width="180" Margin="6">
+                                <Grid.ContextFlyout>
+                                    <StaticResource ResourceKey="MediaContextMenu"/>
+                                </Grid.ContextFlyout>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="180"/>
                                     <RowDefinition Height="Auto"/>
@@ -1132,6 +1156,12 @@
                             Visibility="{Binding IsCurrentVideo, ConverterParameter=Invert, Converter={StaticResource BoolToVisibility}}"
                             AutomationProperties.Name="全部歌词">
                         <FontIcon Glyph="&#xE8FD;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="White"/>
+                    </Button>
+                    <Button Style="{StaticResource OverlayIconButtonStyle}" Width="40" Height="36"
+                            ToolTipService.ToolTip="音乐信息 / 编辑元数据" Click="Metadata_Click"
+                            Visibility="{Binding IsCurrentVideo, ConverterParameter=Invert, Converter={StaticResource BoolToVisibility}}"
+                            AutomationProperties.Name="音乐信息">
+                        <FontIcon Glyph="&#xE70F;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="White"/>
                     </Button>
                     <Button Style="{StaticResource OverlayIconButtonStyle}" Width="40" Height="36"
                             ToolTipService.ToolTip="选词（搜索并选择歌词）" Command="{Binding PickLyricsCommand}"

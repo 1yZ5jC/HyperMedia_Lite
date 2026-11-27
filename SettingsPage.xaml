@@ -160,8 +160,18 @@
                            Foreground="{StaticResource TextPrimaryBrush}"/>
                 <Border Background="{StaticResource SurfaceBrush}" Padding="20" Margin="0,10,0,28">
                     <StackPanel>
-                        <TextBlock Text="「正在播放」磁贴随切歌自动更新；图片轮播可随时启动，优先使用收藏图片"
-                                   FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
+                        <TextBlock Text="磁贴内容" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
+                        <ComboBox x:Name="TileModeCombo" Width="200" Margin="0,8,0,0"
+                                  SelectionChanged="TileModeCombo_SelectionChanged">
+                            <ComboBoxItem Content="正在播放" Tag="NowPlaying"/>
+                            <ComboBoxItem Content="图片轮播" Tag="Photos"/>
+                            <ComboBoxItem Content="两者随机" Tag="Random"/>
+                            <ComboBoxItem Content="播放优先" Tag="PlaybackPriority"/>
+                        </ComboBox>
+                        <TextBlock Text="播放优先：播放时显示正在播放，无播放任务或退出后显示图片；随机模式每次切歌随机切换"
+                                   FontSize="11" Margin="0,6,0,0" Foreground="{StaticResource TextSecondaryBrush}"/>
+                        <TextBlock Text="「正在播放」磁贴随切歌自动更新；图片轮播优先使用收藏图片"
+                                   FontSize="12" Margin="0,12,0,0" Foreground="{StaticResource TextSecondaryBrush}"/>
                         <TextBlock Text="轮播间隔" FontSize="12" Margin="0,12,0,0"
                                    Foreground="{StaticResource TextSecondaryBrush}"/>
                         <ComboBox x:Name="TileIntervalCombo" Width="200" Margin="0,6,0,0"

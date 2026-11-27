@@ -18,7 +18,8 @@ namespace HyperMedia_Lite.ViewModels
     {
         Title,
         DateCreated,
-        Duration
+        Duration,
+        Album
     }
 
     public delegate void MediaItemEventHandler(object sender, MediaItem item);
@@ -57,7 +58,7 @@ namespace HyperMedia_Lite.ViewModels
         public ObservableCollection<MediaItem> Songs { get; } = new ObservableCollection<MediaItem>();
         public ObservableCollection<AlbumCard> Albums { get; } = new ObservableCollection<AlbumCard>();
         public ObservableCollection<ArtistCard> Artists { get; } = new ObservableCollection<ArtistCard>();
-        public IReadOnlyList<string> SortOptions { get; } = new[] { "标题", "最近添加", "时长" };
+        public IReadOnlyList<string> SortOptions { get; } = new[] { "标题", "最近添加", "时长", "专辑" };
 
         public RelayCommand AddFilesCommand { get; }
         public RelayCommand AddFolderCommand { get; }
@@ -80,6 +81,7 @@ namespace HyperMedia_Lite.ViewModels
         public RelayCommand ClearQueueCommand { get; }
         public RelayCommand ToggleQueuePanelCommand { get; }
         public RelayCommand StartPhotoTileCommand { get; }
+        public RelayCommand SetTileModeCommand { get; }
         public RelayCommand SeekToLyricCommand { get; }
         public RelayCommand CycleRateCommand { get; }
         public RelayCommand CreatePlaylistCommand { get; }
@@ -142,6 +144,19 @@ namespace HyperMedia_Lite.ViewModels
             ClearQueueCommand = new RelayCommand(_ => _playback.Stop());
             ToggleQueuePanelCommand = new RelayCommand(_ => IsQueuePanelOpen = !IsQueuePanelOpen);
             StartPhotoTileCommand = new RelayCommand(_ => _ = StartPhotoTileAsync());
+            SetTileModeCommand = new RelayCommand(parameter =>
+            {
+                if (parameter is TileMode mode)
+                {
+                    TileService.Mode = mode;
+                    _ = ApplyTileModeAsync();
+                }
+                else if (parameter is string text && Enum.TryParse(text, out TileMode parsed))
+                {
+                    TileService.Mode = parsed;
+                    _ = ApplyTileModeAsync();
+                }
+            });
             CreatePlaylistCommand = new RelayCommand(async parameter =>
             {
                 string name = parameter as string;
@@ -455,6 +470,39 @@ namespace HyperMedia_Lite.ViewModels
             ApplyViews();
         }
 
+        /// <summary>把一项追加到当前播放队列（不立即播放）。</summary>
+        public void AddToQueue(MediaItem item)
+        {
+            if (item == null || item.File == null) return;
+            if (item.Kind == MediaKind.Photo) return;
+            if (_playback.Queue.Any(i => i.Path == item.Path))
+            {
+                StatusMessage = "该条目已在播放队列中";
+                return;
+            }
+            _playback.Queue.Add(item);
+            UpdateNavCounts();
+            StatusMessage = $"已加入播放队列：{item.Title}";
+        }
+
+        /// <summary>从媒体库移除一项（只移除列表，不删除磁盘文件）。</summary>
+        public void RemoveFromLibrary(MediaItem item)
+        {
+            if (item == null) return;
+            _allItems.Remove(item);
+            CurrentItems.Remove(item);
+            Songs.Remove(item);
+            _ = _playback.RemoveFromQueueAsync(_playback.Queue.IndexOf(item));
+            if (item.IsFavorite)
+            {
+                _favorites.Remove(item.Path);
+                SaveFavorites();
+            }
+            UpdateNavCounts();
+            ApplyViews();
+            StatusMessage = $"已从媒体库移除：{item.Title}（文件未删除）";
+        }
+
         public void ClearSavedFiles()
         {
             _library.ClearSavedFiles();
@@ -624,6 +672,13 @@ namespace HyperMedia_Lite.ViewModels
                     return source.OrderByDescending(i => i.File == null ? DateTimeOffset.MinValue : i.File.DateCreated);
                 case SortMode.Duration:
                     return source.OrderByDescending(i => i.Duration);
+                case SortMode.Album:
+                    // 同一专辑排在一起，无专辑名的放最后；专辑内按艺人、标题排序。
+                    return source
+                        .OrderBy(i => string.IsNullOrWhiteSpace(i.Album) ? "\uffff" : i.Album,
+                            StringComparer.CurrentCultureIgnoreCase)
+                        .ThenBy(i => i.Subtitle ?? string.Empty, StringComparer.CurrentCultureIgnoreCase)
+                        .ThenBy(i => i.Title, StringComparer.CurrentCultureIgnoreCase);
                 default:
                     return source.OrderBy(i => i.Title, StringComparer.CurrentCultureIgnoreCase);
             }
@@ -728,14 +783,14 @@ namespace HyperMedia_Lite.ViewModels
             OnPropertyChanged(nameof(Volume));
             OnPropertyChanged(nameof(RateText));
             SystemMediaControlsService.Current.UpdateStatus(_playback.IsPlaying);
-            TileService.UpdatePlayStatus(_playback.IsPlaying);
+            if (_tileNowPlaying) TileService.UpdatePlayStatus(_playback.IsPlaying);
             UpdateLyricAndSubtitle(_playback.Position.TotalSeconds);
         }
 
         private void OnPlaybackItemChanged(object sender, EventArgs e)
         {
             _activeItem = _playback.CurrentItem;
-            _ = TileService.UpdateNowPlayingAsync(_activeItem, _playback.IsPlaying);
+            _ = UpdateTileForTrackAsync();
             _ = ApplyCoverAccentAsync(_activeItem);
             _ = SystemMediaControlsService.Current.UpdateAsync(_activeItem, _playback.IsPlaying);
             _ = LoadLyricsAsync(_activeItem);
@@ -825,6 +880,94 @@ namespace HyperMedia_Lite.ViewModels
             {
                 ThemeService.SetDynamicAccent(color);
             }
+        }
+
+        private bool _tileNowPlaying = true;
+
+        private async System.Threading.Tasks.Task UpdateTileForTrackAsync()
+        {
+            var mode = TileService.Mode;
+            if (mode == TileMode.Photos)
+            {
+                _tileNowPlaying = false;
+                return;
+            }
+
+            // 播放优先：有当前曲目就显示正在播放，没有则回落到图片磁贴。
+            if (mode == TileMode.PlaybackPriority && _activeItem == null)
+            {
+                await ApplyIdleTileAsync();
+                _tileNowPlaying = false;
+                return;
+            }
+
+            bool nowPlaying = mode == TileMode.NowPlaying
+                || (mode == TileMode.PlaybackPriority && _activeItem != null)
+                || (mode == TileMode.Random && new Random().Next(2) == 0);
+            if (nowPlaying)
+            {
+                await TileService.UpdateNowPlayingAsync(_activeItem, _playback.IsPlaying);
+                _tileNowPlaying = true;
+            }
+            else
+            {
+                await ApplyIdleTileAsync();
+                _tileNowPlaying = false;
+            }
+        }
+
+        /// <summary>无播放任务 / 应用退出时显示图片磁贴。</summary>
+        public async System.Threading.Tasks.Task ApplyIdleTileAsync(bool force = false)
+        {
+            if (TileService.Mode != TileMode.PlaybackPriority) return;
+            // 生成图片期间用户可能已经开始播放：此时必须放弃回落，否则会覆盖正在播放磁贴。
+            // force 用于应用退出：即使队列还有文件，也要切回图片磁贴。
+            if (!force && _playback.CurrentItem != null) return;
+            try
+            {
+                if (TileService.HasCachedPhotoTile)
+                {
+                    TileService.ApplyCachedPhotoTile();
+                }
+                else
+                {
+                    await StartPhotoTileAsync();
+                }
+            }
+            catch { }
+            // 退出时（force）即使队列还有文件也不要补推正在播放，否则刚切好的图片磁贴会被覆盖。
+            if (!force && _playback.CurrentItem != null)
+            {
+                await TileService.UpdateNowPlayingAsync(_playback.CurrentItem, _playback.IsPlaying);
+            }
+        }
+
+        private async System.Threading.Tasks.Task ApplyTileModeAsync()
+        {
+            var mode = TileService.Mode;
+            if (mode == TileMode.Photos)
+            {
+                await StartPhotoTileAsync();
+                _tileNowPlaying = false;
+                return;
+            }
+
+            if (mode == TileMode.PlaybackPriority && _activeItem == null)
+            {
+                await ApplyIdleTileAsync();
+                _tileNowPlaying = false;
+                return;
+            }
+
+            if (mode == TileMode.Random && new Random().Next(2) == 0)
+            {
+                await StartPhotoTileAsync();
+                _tileNowPlaying = false;
+                return;
+            }
+
+            await TileService.UpdateNowPlayingAsync(_activeItem, _playback.IsPlaying);
+            _tileNowPlaying = true;
         }
 
         private async System.Threading.Tasks.Task StartPhotoTileAsync()
@@ -1108,7 +1251,8 @@ namespace HyperMedia_Lite.ViewModels
         public string PlayAllText => $"无序播放所有 ({VisiblePlayableItems().Count})";
 
         public string SortDescription => _sortMode == SortMode.Title ? "标题"
-            : _sortMode == SortMode.DateCreated ? "添加时间" : "时长";
+            : _sortMode == SortMode.DateCreated ? "添加时间"
+            : _sortMode == SortMode.Duration ? "时长" : "专辑";
 
         public string StatusMessage
         {

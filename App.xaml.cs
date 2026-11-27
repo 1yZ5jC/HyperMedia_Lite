@@ -23,6 +23,9 @@ namespace HyperMedia_Lite
         /// <summary>从编辑器返回时需要恢复的图片灯箱项。</summary>
         public static Models.MediaItem PhotoToRestore { get; set; }
 
+        /// <summary>从音乐信息编辑器返回时是否需要恢复播放浮层。</summary>
+        public static bool ReturnToPlayer { get; set; }
+
         /// <summary>
         /// 全局共享的视图模型，保证在主页与设置页之间切换时媒体库和播放状态不丢失。
         /// </summary>
@@ -112,6 +115,9 @@ namespace HyperMedia_Lite
                 // 确保当前窗口处于活动状态
                 Window.Current.Activate();
                 LogStartup("window activated");
+
+                // 播放优先模式：启动时没有播放任务就显示图片磁贴。
+                _ = MainViewModel.ApplyIdleTileAsync();
             }
         }
 
@@ -156,11 +162,17 @@ namespace HyperMedia_Lite
             _isInBackgroundMode = false;
         }
 
-        private void OnSuspending(object sender, SuspendingEventArgs e)
+        private async void OnSuspending(object sender, SuspendingEventArgs e)
         {
             var deferral = e.SuspendingOperation.GetDeferral();
             // 不要在这里暂停播放：声明了后台音频能力后，
             // 即使窗口最小化 / 应用挂起，音乐也应继续播放。
+            // 播放优先模式下，退出时把磁贴切回图片（队列还在也要切）。
+            try
+            {
+                await MainViewModel.ApplyIdleTileAsync(force: true);
+            }
+            catch { }
             deferral.Complete();
         }
     }

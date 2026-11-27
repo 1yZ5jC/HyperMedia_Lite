@@ -112,7 +112,13 @@ namespace HyperMedia_Lite.Models
         public bool IsFavorite
         {
             get => _isFavorite;
-            set => SetProperty(ref _isFavorite, value);
+            set
+            {
+                if (SetProperty(ref _isFavorite, value))
+                {
+                    OnPropertyChanged(nameof(FavoriteLabel));
+                }
+            }
         }
 
         /// <summary>是否正在播放（用于播放队列面板高亮）。</summary>
@@ -121,6 +127,9 @@ namespace HyperMedia_Lite.Models
             get => _isCurrentQueueItem;
             set => SetProperty(ref _isCurrentQueueItem, value);
         }
+
+        /// <summary>右键菜单里的收藏项文字。</summary>
+        public string FavoriteLabel => IsFavorite ? "取消收藏" : "收藏";
 
         /// <summary>
         /// 无缩略图时的纯色底，按标题生成，保证同一文件颜色稳定。
@@ -200,6 +209,14 @@ namespace HyperMedia_Lite.Models
         {
             try
             {
+                // 用户替换过的封面优先。
+                var overrideImage = await Services.CoverOverrideService.TryLoadAsync(this);
+                if (overrideImage != null)
+                {
+                    Thumbnail = overrideImage;
+                    return;
+                }
+
                 ThumbnailMode mode = Kind == MediaKind.Audio ? ThumbnailMode.MusicView
                     : Kind == MediaKind.Video ? ThumbnailMode.VideosView
                     : ThumbnailMode.PicturesView;

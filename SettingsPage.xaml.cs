@@ -57,6 +57,16 @@ namespace HyperMedia_Lite
                 }
             }
 
+            string mode = TileService.Mode.ToString();
+            foreach (var item in TileModeCombo.Items)
+            {
+                if (item is ComboBoxItem comboItem && comboItem.Tag is string tag && tag == mode)
+                {
+                    TileModeCombo.SelectedItem = comboItem;
+                    break;
+                }
+            }
+
             string interval = TileService.RotationInterval.ToString();
             foreach (var item in TileIntervalCombo.Items)
             {
@@ -65,6 +75,15 @@ namespace HyperMedia_Lite
                     TileIntervalCombo.SelectedItem = comboItem;
                     break;
                 }
+            }
+        }
+
+        private void TileModeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (TileModeCombo.SelectedItem is ComboBoxItem item && item.Tag is string tag
+                && Enum.TryParse(tag, out TileMode mode))
+            {
+                _viewModel.SetTileModeCommand.Execute(mode);
             }
         }
 

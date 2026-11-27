@@ -99,6 +99,14 @@ namespace HyperMedia_Lite
             try { Window.Current.SetTitleBar(AppTitleBar); } catch { }
             UpdateTitleBarAppearance();
 
+            // 从音乐信息页返回时恢复播放浮层。
+            if (App.ReturnToPlayer)
+            {
+                App.ReturnToPlayer = false;
+                PlayerOverlay.Visibility = Visibility.Visible;
+                UpdateTitleBarAppearance();
+            }
+
             // 从编辑页返回时恢复图片查看器（缓存复用时 Loaded 不会再触发）。
             if (App.PhotoToRestore != null)
             {
@@ -722,6 +730,65 @@ namespace HyperMedia_Lite
                 }
             }
             catch { }
+        }
+
+        private void Metadata_Click(object sender, RoutedEventArgs e)
+        {
+            var item = _viewModel.CurrentTrack;
+            if (item != null)
+            {
+                App.ReturnToPlayer = PlayerOverlay.Visibility == Visibility.Visible;
+                Frame.Navigate(typeof(MetadataPage), item);
+            }
+        }
+
+        private static MediaItem ContextItem(object sender) =>
+            (sender as FrameworkElement)?.DataContext as MediaItem;
+
+        private void ContextPlay_Click(object sender, RoutedEventArgs e)
+        {
+            var item = ContextItem(sender);
+            if (item != null) _ = _viewModel.OpenItemAsync(item);
+        }
+
+        private void ContextQueue_Click(object sender, RoutedEventArgs e)
+        {
+            _viewModel.AddToQueue(ContextItem(sender));
+        }
+
+        private void ContextEditPhoto_Click(object sender, RoutedEventArgs e)
+        {
+            var item = ContextItem(sender);
+            if (item == null) return;
+            App.PhotoToRestore = item;
+            Frame.Navigate(typeof(EditPage), item);
+        }
+
+        private async void ContextTile_Click(object sender, RoutedEventArgs e)
+        {
+            var item = ContextItem(sender);
+            if (item == null) return;
+            await TileService.StartPhotoSlideshowAsync(new[] { item });
+        }
+
+        private void ContextFavorite_Click(object sender, RoutedEventArgs e)
+        {
+            _viewModel.ToggleFavorite(ContextItem(sender));
+        }
+
+        private void ContextRemove_Click(object sender, RoutedEventArgs e)
+        {
+            _viewModel.RemoveFromLibrary(ContextItem(sender));
+        }
+
+        private void EditMetadata_Click(object sender, RoutedEventArgs e)
+        {
+            if ((sender as FrameworkElement)?.DataContext is MediaItem item
+                && item.Kind == MediaKind.Audio)
+            {
+                App.ReturnToPlayer = false;
+                Frame.Navigate(typeof(MetadataPage), item);
+            }
         }
 
         private async void PictureInPicture_Click(object sender, RoutedEventArgs e)

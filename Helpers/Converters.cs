@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Windows.UI;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Data;
@@ -19,6 +20,25 @@ namespace HyperMedia_Lite.Helpers
                 visible = !visible;
             }
             return visible ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>MediaKind -> Visibility，ConverterParameter 传 "Audio" / "Video" / "Photo"。</summary>
+    public sealed class MediaKindToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            // 支持 "Audio" / "Audio,Video" / "Photo" 等，逗号分隔表示任一匹配。
+            string expected = parameter as string ?? "Audio";
+            var kinds = expected.Split(',').Select(k => k.Trim());
+            return value != null && kinds.Any(k =>
+                string.Equals(value.ToString(), k, StringComparison.OrdinalIgnoreCase))
+                ? Visibility.Visible : Visibility.Collapsed;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, string language)

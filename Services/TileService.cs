@@ -16,6 +16,14 @@ namespace HyperMedia_Lite.Services
     /// 动态磁贴：正在播放（封面 + 歌名）与图片轮播（通知队列自动轮播）。
     /// TileUpdateManager 自 10240 起可用，无需版本守卫。
     /// </summary>
+    public enum TileMode
+    {
+        NowPlaying,  // 正在播放
+        Photos,      // 图片轮播
+        Random,      // 两者随机
+        PlaybackPriority // 播放时显示正在播放，无播放任务 / 退出时显示图片
+    }
+
     public static class TileService
     {
         private const string TileImageFolder = "TileImages";
@@ -24,6 +32,66 @@ namespace HyperMedia_Lite.Services
         private static string _currentTileArtist;
 
         private const string IntervalKey = "PhotoTileIntervalSeconds";
+        private const string ModeKey = "TileMode";
+        private static List<string> _photoTileImages = new List<string>();
+        private static int _generation;
+
+        private static int NextGeneration() => ++_generation;
+
+        private static void PushNowPlaying(string image, bool isPlaying, int generation)
+        {
+            if (generation != _generation) return;
+            var updater = TileUpdateManager.CreateTileUpdaterForApplication();
+            updater.EnableNotificationQueue(false);
+            updater.Clear();
+            updater.Update(CreateNotification(BuildXml(image, isPlaying, true)));
+            Helpers.DebugLog.WriteAlways("TILE", "now playing tile pushed");
+        }
+
+        /// <summary>磁贴内容模式，持久化保存。</summary>
+        public static TileMode Mode
+        {
+            get
+            {
+                try
+                {
+                    object raw = ApplicationData.Current.LocalSettings.Values[ModeKey];
+                    return raw is int value && Enum.IsDefined(typeof(TileMode), value)
+                        ? (TileMode)value : TileMode.NowPlaying;
+                }
+                catch { return TileMode.NowPlaying; }
+            }
+            set
+            {
+                try
+                {
+                    ApplicationData.Current.LocalSettings.Values[ModeKey] = (int)value;
+                }
+                catch { }
+            }
+        }
+
+        public static bool HasCachedPhotoTile => _photoTileImages.Count > 0;
+
+        /// <summary>用上次已生成的图片重新推送磁贴，避免重复解码原图。</summary>
+        public static void ApplyCachedPhotoTile()
+        {
+            if (_photoTileImages.Count == 0) return;
+            try
+            {
+                int generation = NextGeneration();
+                var updater = TileUpdateManager.CreateTileUpdaterForApplication();
+                updater.EnableNotificationQueue(false);
+                var notification = CreateNotification(BuildPhotosXml(_photoTileImages));
+                notification.ExpirationTime = DateTimeOffset.Now.AddDays(7);
+                updater.Update(notification);
+                Helpers.DebugLog.WriteAlways("TILE", "cached photo tile applied");
+            }
+            catch (Exception ex)
+            {
+                Helpers.DebugLog.WriteAlways("TILE", "cached photo tile failed: " + ex.Message);
+            }
+        }
         private static DispatcherTimer _rotationTimer;
         private static List<string> _rotationImages = new List<string>();
         private static int _rotationIndex;
@@ -66,14 +134,19 @@ namespace HyperMedia_Lite.Services
             {
                 Helpers.DebugLog.WriteAlways("TILE", "UpdateNowPlaying: " + item.Title);
                 StopTimedRotation();
-                string image = await SaveThumbnailAsync(item, "nowplaying.png");
+
+                // 先立即推送一次（用已缓存的封面），让磁贴马上切到正在播放；
+                // 再保存新封面后推送最终版本。
                 _currentTileTitle = XmlEscape(item.Title ?? item.File.DisplayName);
                 _currentTileArtist = XmlEscape(item.Subtitle ?? string.Empty);
-                var updater = TileUpdateManager.CreateTileUpdaterForApplication();
-                updater.EnableNotificationQueue(false);
-                updater.Clear();
-                updater.Update(CreateNotification(BuildXml(image, isPlaying, true)));
-                Helpers.DebugLog.WriteAlways("TILE", "now playing tile pushed");
+                int generation = NextGeneration();
+                PushNowPlaying(CurrentImage, isPlaying, generation);
+
+                string image = await SaveThumbnailAsync(item, "nowplaying.png");
+                if (generation == _generation)
+                {
+                    PushNowPlaying(image, isPlaying, generation);
+                }
             }
             catch (Exception ex)
             {
@@ -110,12 +183,15 @@ namespace HyperMedia_Lite.Services
             {
                 _currentTileTitle = null;
                 _currentTileArtist = null;
+                int generation = NextGeneration();
 
                 var images = new List<string>();
                 for (int i = 0; i < list.Count; i++)
                 {
                     images.Add(await SaveThumbnailAsync(list[i], "slide" + i + ".png"));
                 }
+
+                if (generation != _generation) return;
 
                 var notification = CreateNotification(BuildPhotosXml(images));
                 notification.ExpirationTime = DateTimeOffset.Now.AddDays(7);
@@ -146,10 +222,13 @@ namespace HyperMedia_Lite.Services
                 _currentTileTitle = null;
                 _currentTileArtist = null;
 
+                _photoTileImages = new List<string>();
                 _rotationImages = new List<string>();
                 for (int i = 0; i < list.Count; i++)
                 {
-                    _rotationImages.Add(await SaveThumbnailAsync(list[i], "slide" + i + ".png"));
+                    string path = await SaveThumbnailAsync(list[i], "slide" + i + ".png");
+                    _photoTileImages.Add(path);
+                    _rotationImages.Add(path);
                 }
                 _rotationIndex = 0;
                 PushCurrentRotationImage();
