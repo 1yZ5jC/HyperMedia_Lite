@@ -84,6 +84,7 @@ namespace HyperMedia_Lite
             // 自定义标题栏：整个应用生命周期只设置一次拖动区。
             try { Window.Current.SetTitleBar(AppTitleBar); } catch { }
             UpdateTitleBarAppearance();
+            SyncMultiSelectControls();
 
         }
 
@@ -98,6 +99,7 @@ namespace HyperMedia_Lite
             // 从设置 / 编辑页返回时重新接管标题栏拖动区。
             try { Window.Current.SetTitleBar(AppTitleBar); } catch { }
             UpdateTitleBarAppearance();
+            SyncMultiSelectControls();
 
             // 从音乐信息页返回时恢复播放浮层。
             if (App.ReturnToPlayer)
@@ -145,6 +147,11 @@ namespace HyperMedia_Lite
             // 视图模型是全局共享的，离开页面时解除订阅，避免返回后重复注册。
             UnsubscribeViewModel();
             PrintService.Unregister();
+
+            // 离开主页时收起所有多选状态。
+            _viewModel.IsMultiSelect = false;
+            _viewModel.IsQueueMultiSelect = false;
+            _viewModel.IsPlaylistMultiSelect = false;
             base.OnNavigatedFrom(e);
         }
 
@@ -247,6 +254,96 @@ namespace HyperMedia_Lite
             {
                 _viewModel.PlayPlaylistCommand.Execute(playlist);
             }
+        }
+
+        private void MultiSelect_Click(object sender, RoutedEventArgs e)
+        {
+            // 先清控件选中项再切模式（由 SyncMultiSelectControls 统一处理），
+            // 避免改为 None 后再 Clear() 抛 E_UNEXPECTED。
+            if (_viewModel.IsMultiSelect)
+            {
+                try
+                {
+                    if (SongList.SelectedItems.Count > 0) SongList.SelectedItems.Clear();
+                }
+                catch { }
+                try
+                {
+                    if (GenericGrid.SelectedItems.Count > 0) GenericGrid.SelectedItems.Clear();
+                }
+                catch { }
+            }
+            _viewModel.IsMultiSelect = !_viewModel.IsMultiSelect;
+        }
+
+        private void QueueMultiSelect_Click(object sender, RoutedEventArgs e)
+        {
+            if (_viewModel.IsQueueMultiSelect)
+            {
+                try
+                {
+                    if (QueueList.SelectedItems.Count > 0) QueueList.SelectedItems.Clear();
+                }
+                catch { }
+            }
+            _viewModel.IsQueueMultiSelect = !_viewModel.IsQueueMultiSelect;
+        }
+
+        private void QueueList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!_viewModel.IsQueueMultiSelect) return;
+            _viewModel.SyncQueueSelection(
+                e.AddedItems.OfType<MediaItem>(), e.RemovedItems.OfType<MediaItem>());
+        }
+
+        private void PlaylistMultiSelect_Click(object sender, RoutedEventArgs e)
+        {
+            if (_viewModel.IsPlaylistMultiSelect)
+            {
+                try
+                {
+                    if (PlaylistGrid.SelectedItems.Count > 0) PlaylistGrid.SelectedItems.Clear();
+                }
+                catch { }
+            }
+            _viewModel.IsPlaylistMultiSelect = !_viewModel.IsPlaylistMultiSelect;
+        }
+
+        private void PlaylistGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!_viewModel.IsPlaylistMultiSelect) return;
+            _viewModel.SyncPlaylistSelection(
+                e.AddedItems.OfType<Playlist>(), e.RemovedItems.OfType<Playlist>());
+        }
+
+        private void SongList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!_viewModel.IsMultiSelect) return;
+            _viewModel.SyncSelection(
+                e.AddedItems.OfType<MediaItem>(),
+                e.RemovedItems.OfType<MediaItem>());
+        }
+
+        private void SelectedToPlaylist_Click(object sender, RoutedEventArgs e)
+        {
+            if (_viewModel.SelectedItems.Count == 0) return;
+
+            var menu = new MenuFlyout { Placement = FlyoutPlacementMode.Top };
+            if (_viewModel.Playlists.Count == 0)
+            {
+                menu.Items.Add(new MenuFlyoutItem { Text = "暂无播放列表，请先创建", IsEnabled = false });
+            }
+            else
+            {
+                foreach (var playlist in _viewModel.Playlists)
+                {
+                    var target = playlist;
+                    var item = new MenuFlyoutItem { Text = target.Name };
+                    item.Click += async (s, args) => await _viewModel.AddSelectedToPlaylist(target);
+                    menu.Items.Add(item);
+                }
+            }
+            if (sender is Button button) menu.ShowAt(button);
         }
 
         private void AddToPlaylist_Click(object sender, RoutedEventArgs e)
@@ -518,8 +615,46 @@ namespace HyperMedia_Lite
             UpdateTitleBarAppearance();
         }
 
+        private bool _syncingSelectionMode;
+
+        private static void ApplySelectionMode(ListViewBase list, bool multi)
+        {
+            var mode = multi ? ListViewSelectionMode.Multiple : ListViewSelectionMode.None;
+            if (list.SelectionMode == mode) return;
+            if (!multi && list.SelectedItems.Count > 0)
+            {
+                try { list.SelectedItems.Clear(); } catch { }
+            }
+            list.SelectionMode = mode;
+            list.IsItemClickEnabled = !multi;
+        }
+
+        /// <summary>让列表控件的选择模式始终跟随 ViewModel，切换页面时一并收起选择框。</summary>
+        private void SyncMultiSelectControls()
+        {
+            if (_syncingSelectionMode) return;
+            _syncingSelectionMode = true;
+            try
+            {
+                ApplySelectionMode(SongList, _viewModel.IsMultiSelect);
+                ApplySelectionMode(GenericGrid, _viewModel.IsMultiSelect);
+                ApplySelectionMode(QueueList, _viewModel.IsQueueMultiSelect);
+                ApplySelectionMode(PlaylistGrid, _viewModel.IsPlaylistMultiSelect);
+            }
+            finally
+            {
+                _syncingSelectionMode = false;
+            }
+        }
+
         private void ViewModel_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
+            if (e.PropertyName == nameof(MainViewModel.IsMultiSelect)
+                || e.PropertyName == nameof(MainViewModel.IsQueueMultiSelect)
+                || e.PropertyName == nameof(MainViewModel.IsPlaylistMultiSelect))
+            {
+                SyncMultiSelectControls();
+            }
             if (e.PropertyName == "CurrentLyricText")
             {
                 UpdateLyricHighlight();

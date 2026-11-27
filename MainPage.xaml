@@ -174,6 +174,70 @@
             </Setter>
         </Style>
 
+        <!-- 多选操作条按钮：有可见底色与描边，悬停更亮；完成按钮用强调色 -->
+        <Style x:Key="MultiSelectButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="12,7"/>
+            <Setter Property="MinWidth" Value="88"/>
+            <Setter Property="MinHeight" Value="38"/>
+            <Setter Property="Background" Value="#33FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#55FFFFFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="RootBorder" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal"/>
+                                    <VisualState x:Name="PointerOver">
+                                        <VisualState.Setters>
+                                            <Setter Target="RootBorder.Background" Value="#66FFFFFF"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Pressed">
+                                        <VisualState.Setters>
+                                            <Setter Target="RootBorder.Background" Value="#88FFFFFF"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Disabled">
+                                        <VisualState.Setters>
+                                            <Setter Target="RootBorder.Opacity" Value="0.4"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 播放队列面板较窄，操作按钮用紧凑宽度 -->
+        <Style x:Key="QueueActionButtonStyle" TargetType="Button" BasedOn="{StaticResource MultiSelectButtonStyle}">
+            <Setter Property="MinWidth" Value="56"/>
+            <Setter Property="Padding" Value="8,6"/>
+        </Style>
+
+        <Style x:Key="QueueDoneButtonStyle" TargetType="Button" BasedOn="{StaticResource MultiSelectDoneButtonStyle}">
+            <Setter Property="MinWidth" Value="56"/>
+            <Setter Property="Padding" Value="8,6"/>
+        </Style>
+
+        <!-- 队列上移/下移用的窄图标按钮 -->
+        <Style x:Key="MultiSelectIconButtonStyle" TargetType="Button" BasedOn="{StaticResource MultiSelectButtonStyle}">
+            <Setter Property="MinWidth" Value="34"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+
+        <Style x:Key="MultiSelectDoneButtonStyle" TargetType="Button" BasedOn="{StaticResource MultiSelectButtonStyle}">
+            <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+
         <Style x:Key="PlaybackIconButtonStyle" TargetType="Button">
             <Setter Property="Width" Value="40"/>
             <Setter Property="Height" Value="40"/>
@@ -510,7 +574,8 @@
                 <Rectangle Height="1" Fill="#FFE4E4E4" Margin="0,10,0,0"
                            Visibility="{Binding ShowMusicTabs, Converter={StaticResource BoolToVisibility}}"/>
 
-                <Grid Margin="0,10,0,8">
+                <Grid Margin="0,10,0,8"
+                      Visibility="{Binding IsStatsVisible, ConverterParameter=Invert, Converter={StaticResource BoolToVisibility}}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
@@ -532,28 +597,47 @@
                                   AutomationProperties.Name="排序方式"/>
                         <Button x:Name="RefreshButton" Width="32" Height="30" Padding="0" BorderThickness="0" Background="Transparent"
                                 Foreground="{StaticResource TextPrimaryBrush}"
-                                Command="{Binding RefreshCommand}" AutomationProperties.Name="刷新媒体库">
+                                Command="{Binding RefreshCommand}" ToolTipService.ToolTip="刷新媒体库"
+                                AutomationProperties.Name="刷新媒体库">
                             <FontIcon Glyph="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="14"/>
+                        </Button>
+                        <Button x:Name="MultiSelectButton" Width="32" Height="30" Padding="0" BorderThickness="0"
+                                Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
+                                Visibility="{Binding IsLibraryMultiSelectAvailable, Converter={StaticResource BoolToVisibility}}"
+                                Click="MultiSelect_Click" ToolTipService.ToolTip="多选"
+                                AutomationProperties.Name="多选">
+                            <FontIcon Glyph="&#xE762;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
                         </Button>
                         <Button Width="32" Height="30" Padding="0" BorderThickness="0" Background="Transparent"
                                 Foreground="{StaticResource TextPrimaryBrush}"
-                                Command="{Binding AddFilesCommand}" AutomationProperties.Name="添加媒体">
-                            <FontIcon Glyph="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
+                                Command="{Binding AddFilesCommand}" ToolTipService.ToolTip="添加媒体"
+                                AutomationProperties.Name="添加媒体">
+                            <FontIcon Glyph="&#xE8E5;" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
                         </Button>
                         <Button Width="32" Height="30" Padding="0" BorderThickness="0" Background="Transparent"
                                 Foreground="{StaticResource TextPrimaryBrush}"
                                 Visibility="{Binding IsPlaylistsVisible, Converter={StaticResource BoolToVisibility}}"
-                                Click="CreatePlaylist_Click" AutomationProperties.Name="新建播放列表">
+                                Click="PlaylistMultiSelect_Click" ToolTipService.ToolTip="多选播放列表"
+                                AutomationProperties.Name="多选播放列表">
+                            <FontIcon Glyph="&#xE762;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
+                        </Button>
+                        <Button Width="32" Height="30" Padding="0" BorderThickness="0" Background="Transparent"
+                                Foreground="{StaticResource TextPrimaryBrush}"
+                                Visibility="{Binding IsPlaylistsVisible, Converter={StaticResource BoolToVisibility}}"
+                                Click="CreatePlaylist_Click" ToolTipService.ToolTip="新建播放列表"
+                                AutomationProperties.Name="新建播放列表">
                             <FontIcon Glyph="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
                         </Button>
                         <Button x:Name="AddFolderButton" Width="32" Height="30" Padding="0" BorderThickness="0" Background="Transparent"
                                 Foreground="{StaticResource TextPrimaryBrush}"
-                                Command="{Binding AddFolderCommand}" AutomationProperties.Name="导入文件夹">
+                                Command="{Binding AddFolderCommand}" ToolTipService.ToolTip="导入文件夹"
+                                AutomationProperties.Name="导入文件夹">
                             <FontIcon Glyph="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
                         </Button>
                         <Button x:Name="HeaderOverflowButton" Width="32" Height="30" Padding="0"
                                 Background="Transparent" BorderThickness="0" Foreground="{StaticResource TextPrimaryBrush}"
-                                Visibility="Collapsed" AutomationProperties.Name="更多选项">
+                                Visibility="Collapsed" ToolTipService.ToolTip="更多选项"
+                                AutomationProperties.Name="更多选项">
                             <FontIcon Glyph="&#xE712;" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
                             <Button.Flyout>
                                 <MenuFlyout>
@@ -616,6 +700,7 @@
                           ItemTemplateSelector="{StaticResource SongRowSelector}"
                           ItemContainerStyle="{StaticResource SongItemStyle}"
                           SelectionMode="None" IsItemClickEnabled="True"
+                          SelectionChanged="SongList_SelectionChanged"
                           ItemClick="SongList_ItemClick"
                           Visibility="{Binding IsSongsVisible, Converter={StaticResource BoolToVisibility}}">
                 </ListView>
@@ -654,6 +739,7 @@
                 <GridView x:Name="GenericGrid" Padding="28,8,28,20"
                           ItemsSource="{Binding CurrentItems}" ItemContainerStyle="{StaticResource CardItemStyle}"
                           SelectionMode="None" IsItemClickEnabled="True"
+                          SelectionChanged="SongList_SelectionChanged"
                           ItemClick="MediaGrid_ItemClick"
                           Visibility="{Binding IsGenericVisible, Converter={StaticResource BoolToVisibility}}">
                     <GridView.ItemTemplate>
@@ -705,6 +791,7 @@
                 <GridView x:Name="PlaylistGrid" Padding="28,8,28,20"
                           ItemsSource="{Binding Playlists}" ItemContainerStyle="{StaticResource CardItemStyle}"
                           SelectionMode="None" IsItemClickEnabled="True"
+                          SelectionChanged="PlaylistGrid_SelectionChanged"
                           ItemClick="Playlist_ItemClick"
                           Visibility="{Binding IsPlaylistsVisible, Converter={StaticResource BoolToVisibility}}">
                     <GridView.ItemTemplate>
@@ -774,6 +861,69 @@
 
                 <ProgressBar VerticalAlignment="Top" Height="3" IsIndeterminate="True"
                              Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}"/>
+
+                <!-- 多选操作条 -->
+                <Border VerticalAlignment="Bottom" Padding="16,10" Background="#CC1C1C1C"
+                        Visibility="{Binding IsMultiSelect, Converter={StaticResource BoolToVisibility}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{Binding SelectionSummary}" FontSize="13" Foreground="White"
+                                   VerticalAlignment="Center"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Style="{StaticResource MultiSelectButtonStyle}" Content="加入队列" Padding="12,7" MinHeight="38" Margin="0,0,8,0"
+                                    Command="{Binding AddSelectedToQueueCommand}"
+                                    Visibility="{Binding ShowMediaSelectionActions, Converter={StaticResource BoolToVisibility}}"/>
+                            <Button Style="{StaticResource MultiSelectButtonStyle}" x:Name="SelectedToPlaylistButton" Content="加入播放列表" Padding="12,7" MinHeight="38" Margin="0,0,8,0"
+                                    Click="SelectedToPlaylist_Click"
+                                    Visibility="{Binding ShowMediaSelectionActions, Converter={StaticResource BoolToVisibility}}"/>
+                            <Button Style="{StaticResource MultiSelectButtonStyle}" Content="设为磁贴轮播" Padding="12,7" MinHeight="38" Margin="0,0,8,0"
+                                    Command="{Binding SetSelectedAsTileCommand}"
+                                    Visibility="{Binding ShowPhotoSelectionActions, Converter={StaticResource BoolToVisibility}}"/>
+                            <Button Style="{StaticResource MultiSelectButtonStyle}" Content="播放" Padding="12,7" MinHeight="38" Margin="0,0,8,0"
+                                    Command="{Binding PlaySelectedItemsCommand}"
+                                    Visibility="{Binding ShowQueueSelectionActions, Converter={StaticResource BoolToVisibility}}"/>
+                            <Button Width="34" Style="{StaticResource MultiSelectIconButtonStyle}" Content="↑" Margin="0,0,8,0"
+                                    Command="{Binding MoveSelectedItemsUpCommand}"
+                                    Visibility="{Binding ShowQueueSelectionActions, Converter={StaticResource BoolToVisibility}}"/>
+                            <Button Width="34" Style="{StaticResource MultiSelectIconButtonStyle}" Content="↓" Margin="0,0,8,0"
+                                    Command="{Binding MoveSelectedItemsDownCommand}"
+                                    Visibility="{Binding ShowQueueSelectionActions, Converter={StaticResource BoolToVisibility}}"/>
+                            <Button Style="{StaticResource MultiSelectButtonStyle}" Content="移出队列" Padding="12,7" MinHeight="38" Margin="0,0,8,0"
+                                    Command="{Binding RemoveSelectedItemsFromQueueCommand}"
+                                    Visibility="{Binding ShowQueueSelectionActions, Converter={StaticResource BoolToVisibility}}"/>
+                            <Button Style="{StaticResource MultiSelectButtonStyle}" Content="收藏" Padding="12,7" MinHeight="38" Margin="0,0,8,0"
+                                    Command="{Binding FavoriteSelectedCommand}"
+                                    Visibility="{Binding ShowQueueSelectionActions, ConverterParameter=Invert, Converter={StaticResource BoolToVisibility}}"/>
+                            <Button Style="{StaticResource MultiSelectButtonStyle}" Content="移除" Padding="12,7" MinHeight="38" Margin="0,0,8,0"
+                                    Command="{Binding RemoveSelectedCommand}"
+                                    Visibility="{Binding ShowQueueSelectionActions, ConverterParameter=Invert, Converter={StaticResource BoolToVisibility}}"/>
+                            <Button Style="{StaticResource MultiSelectDoneButtonStyle}" Content="完成" Padding="12,7" MinHeight="38" Click="MultiSelect_Click"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- 播放列表多选操作条 -->
+                <Border VerticalAlignment="Bottom" Padding="16,10" Background="#CC1C1C1C"
+                        Visibility="{Binding IsPlaylistMultiSelect, Converter={StaticResource BoolToVisibility}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{Binding PlaylistSelectionSummary}" FontSize="13" Foreground="White"
+                                   VerticalAlignment="Center"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Style="{StaticResource MultiSelectButtonStyle}" Content="播放选中" Padding="12,7" MinHeight="38" Margin="0,0,8,0"
+                                    Command="{Binding PlaySelectedPlaylistsCommand}"/>
+                            <Button Style="{StaticResource MultiSelectButtonStyle}" Content="删除选中" Padding="12,7" MinHeight="38" Margin="0,0,8,0"
+                                    Command="{Binding DeleteSelectedPlaylistsCommand}"/>
+                            <Button Style="{StaticResource MultiSelectDoneButtonStyle}" Content="完成" Padding="12,7" MinHeight="38" Click="PlaylistMultiSelect_Click"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
             </Grid>
 
             <!-- ==================== 底部播放条 ==================== -->
@@ -863,11 +1013,12 @@
                                     Value="{Binding Volume, Mode=TwoWay}" VerticalAlignment="Center"
                                     Foreground="{StaticResource SliderFillBrush}" Background="{StaticResource SliderTrackBrush}"/>
                             <Button x:Name="MoreButton" Style="{StaticResource PlaybackIconButtonStyle}" Margin="14,0,0,0"
-                                    AutomationProperties.Name="更多">
+                                    ToolTipService.ToolTip="更多" AutomationProperties.Name="更多">
                                 <FontIcon Glyph="&#xE712;" FontFamily="Segoe MDL2 Assets" FontSize="18"/>
                             </Button>
                             <Button x:Name="PlayerOverflowButton" Style="{StaticResource PlaybackIconButtonStyle}"
-                                    Margin="8,0,0,0" Visibility="Collapsed" AutomationProperties.Name="播放选项">
+                                    Margin="8,0,0,0" Visibility="Collapsed" ToolTipService.ToolTip="播放选项"
+                                    AutomationProperties.Name="播放选项">
                                 <FontIcon Glyph="&#xE712;" FontFamily="Segoe MDL2 Assets" FontSize="18"/>
                                 <Button.Flyout>
                                     <MenuFlyout>
@@ -1172,8 +1323,8 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <Button Grid.Column="0" Style="{StaticResource OverlayIconButtonStyle}" Width="40" Height="36"
-                        ToolTipService.ToolTip="返回 (Esc)"
-                        Click="ClosePlayer_Click" AutomationProperties.Name="关闭播放界面">
+                        Click="ClosePlayer_Click" ToolTipService.ToolTip="关闭播放界面 (Esc)"
+                        AutomationProperties.Name="关闭播放界面">
                     <FontIcon Glyph="&#xE72B;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="White"/>
                 </Button>
                 <!-- 顶部仅保留操作按钮，不再显示「正在播放」文字 -->
@@ -1385,16 +1536,25 @@
                 <Grid Grid.Row="0" Padding="12,0" Background="#99000000">
                     <TextBlock Text="播放队列" FontSize="15" FontWeight="SemiBold"
                                Foreground="White" VerticalAlignment="Center"/>
-                    <TextBlock Text="{Binding Queue.Count}" FontSize="12" Foreground="#AAFFFFFF"
-                               HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,46,0"/>
-                    <Button Width="34" Height="32" Padding="0" HorizontalAlignment="Right"
-                            Style="{StaticResource OverlayIconButtonStyle}"
-                            Command="{Binding ToggleQueuePanelCommand}" AutomationProperties.Name="关闭队列">
-                        <FontIcon Glyph="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="13"/>
-                    </Button>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Queue.Count}" FontSize="12" Foreground="#AAFFFFFF"
+                                   VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <Button Width="30" Height="30" Padding="0" Margin="0,0,4,0"
+                                Style="{StaticResource OverlayIconButtonStyle}"
+                                Click="QueueMultiSelect_Click" ToolTipService.ToolTip="多选队列"
+                                AutomationProperties.Name="多选队列">
+                            <FontIcon Glyph="&#xE762;" FontFamily="Segoe MDL2 Assets" FontSize="12"/>
+                        </Button>
+                        <Button Width="34" Height="32" Padding="0"
+                                Style="{StaticResource OverlayIconButtonStyle}"
+                                Command="{Binding ToggleQueuePanelCommand}" AutomationProperties.Name="关闭队列">
+                            <FontIcon Glyph="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="13"/>
+                        </Button>
+                    </StackPanel>
                 </Grid>
                 <ListView Grid.Row="1" x:Name="QueueList" ItemsSource="{Binding Queue}"
                           SelectionMode="None" Padding="4" Background="Transparent"
+                          SelectionChanged="QueueList_SelectionChanged"
                           HorizontalContentAlignment="Stretch">
                     <ListView.ItemContainerStyle>
                         <Style TargetType="ListViewItem">
@@ -1456,11 +1616,31 @@
                         </DataTemplate>
                     </ListView.ItemTemplate>
                 </ListView>
-                <Border Grid.Row="2" Padding="10" Background="#99000000">
-                    <Button Content="清空队列" HorizontalAlignment="Stretch" Height="34"
-                            Command="{Binding ClearQueueCommand}" Background="Transparent"
-                            Foreground="White" BorderThickness="1"/>
-                </Border>
+                <Grid Grid.Row="2">
+                    <Border Padding="10" Background="#99000000"
+                            Visibility="{Binding IsQueueMultiSelect, ConverterParameter=Invert, Converter={StaticResource BoolToVisibility}}">
+                        <Button Style="{StaticResource QueueActionButtonStyle}" Content="清空队列" HorizontalAlignment="Stretch" Height="34"
+                                Command="{Binding ClearQueueCommand}"/>
+                    </Border>
+                    <Border Padding="10" Background="#99000000"
+                            Visibility="{Binding IsQueueMultiSelect, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel>
+                            <TextBlock Text="{Binding QueueSelectionSummary}" FontSize="11"
+                                       Foreground="#AAFFFFFF" Margin="0,0,0,6"/>
+                            <StackPanel Orientation="Horizontal">
+                                <Button Style="{StaticResource QueueActionButtonStyle}" Content="播放" Padding="10,6" MinHeight="36" Margin="0,0,6,0"
+                                        Command="{Binding PlaySelectedQueueItemsCommand}"/>
+                                <Button Width="34" Style="{StaticResource MultiSelectIconButtonStyle}" Content="↑" Margin="0,0,6,0"
+                                        Command="{Binding MoveSelectedQueueUpCommand}"/>
+                                <Button Width="34" Style="{StaticResource MultiSelectIconButtonStyle}" Content="↓" Margin="0,0,6,0"
+                                        Command="{Binding MoveSelectedQueueDownCommand}"/>
+                                <Button Style="{StaticResource QueueActionButtonStyle}" Content="移除" Padding="10,6" MinHeight="36" Margin="0,0,6,0"
+                                        Command="{Binding RemoveSelectedFromQueueCommand}"/>
+                                <Button Style="{StaticResource QueueDoneButtonStyle}" Content="完成" Padding="10,6" MinHeight="36" Click="QueueMultiSelect_Click"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
             </Grid>
         </Grid>
 

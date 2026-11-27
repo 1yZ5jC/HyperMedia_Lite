@@ -36,7 +36,7 @@
                 <Button Width="40" Height="36" Padding="0"
                         Background="Transparent" BorderThickness="0"
                         Foreground="{StaticResource TextPrimaryBrush}"
-                        Click="Back_Click" AutomationProperties.Name="返回">
+                        Click="Back_Click" ToolTipService.ToolTip="返回" AutomationProperties.Name="返回">
                     <FontIcon Glyph="&#xE72B;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
                 </Button>
                 <TextBlock Text="音乐信息" FontSize="17" FontWeight="SemiBold"

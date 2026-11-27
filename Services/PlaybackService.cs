@@ -355,6 +355,12 @@ namespace HyperMedia_Lite.Services
             }
         }
 
+        public async System.Threading.Tasks.Task RemoveFromQueueAsync(MediaItem item)
+        {
+            if (item == null) return;
+            await RemoveFromQueueAsync(Queue.IndexOf(item));
+        }
+
         /// <summary>在队列中移动一项（上移 / 下移），保持当前项指向正确。</summary>
         public void MoveQueueItem(int from, int to)
         {

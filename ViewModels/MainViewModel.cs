@@ -64,6 +64,69 @@ namespace HyperMedia_Lite.ViewModels
         public ObservableCollection<Playlist> Playlists { get; } = new ObservableCollection<Playlist>();
         public ObservableCollection<MediaItem> Songs { get; } = new ObservableCollection<MediaItem>();
         public ObservableCollection<object> SongRows { get; } = new ObservableCollection<object>();
+
+        private bool _isMultiSelect;
+        public bool IsMultiSelect
+        {
+            get => _isMultiSelect;
+            set
+            {
+                if (SetProperty(ref _isMultiSelect, value))
+                {
+                    if (!value) SelectedItems.Clear();
+                    OnPropertyChanged(nameof(SelectionSummary));
+                    NotifySelectionKinds();
+                }
+            }
+        }
+
+        public ObservableCollection<MediaItem> SelectedItems { get; } = new ObservableCollection<MediaItem>();
+        public string SelectionSummary => $"已选 {SelectedItems.Count} 项";
+
+        private bool _isQueueMultiSelect;
+        public bool IsQueueMultiSelect
+        {
+            get => _isQueueMultiSelect;
+            set
+            {
+                if (SetProperty(ref _isQueueMultiSelect, value))
+                {
+                    if (!value) SelectedQueueItems.Clear();
+                    OnPropertyChanged(nameof(QueueSelectionSummary));
+                }
+            }
+        }
+        public ObservableCollection<MediaItem> SelectedQueueItems { get; } = new ObservableCollection<MediaItem>();
+        public string QueueSelectionSummary => $"已选 {SelectedQueueItems.Count} 项";
+        public bool IsLibraryMultiSelectAvailable => _currentNav != NavTarget.Playlists;
+        public bool IsQueueNav => _currentNav == NavTarget.Queue;
+        public bool IsPhotoNav => _currentNav == NavTarget.Photos;
+        public bool IsQueueActionAvailable => _currentNav != NavTarget.Photos;
+
+        // 选中项类型决定多选操作条显示哪组按钮；混合类型只保留通用操作。
+        public bool ShowMediaSelectionActions => SelectedItems.Count > 0
+            && _currentNav != NavTarget.Queue
+            && SelectedItems.All(i => i != null && i.Kind != MediaKind.Photo);
+        public bool ShowPhotoSelectionActions => SelectedItems.Count > 0
+            && _currentNav != NavTarget.Queue
+            && SelectedItems.All(i => i != null && i.Kind == MediaKind.Photo);
+        public bool ShowQueueSelectionActions => SelectedItems.Count > 0 && IsQueueNav;
+
+        private bool _isPlaylistMultiSelect;
+        public bool IsPlaylistMultiSelect
+        {
+            get => _isPlaylistMultiSelect;
+            set
+            {
+                if (SetProperty(ref _isPlaylistMultiSelect, value))
+                {
+                    if (!value) SelectedPlaylists.Clear();
+                    OnPropertyChanged(nameof(PlaylistSelectionSummary));
+                }
+            }
+        }
+        public ObservableCollection<Playlist> SelectedPlaylists { get; } = new ObservableCollection<Playlist>();
+        public string PlaylistSelectionSummary => $"已选 {SelectedPlaylists.Count} 个播放列表";
         public ObservableCollection<AlbumCard> Albums { get; } = new ObservableCollection<AlbumCard>();
         public ObservableCollection<ArtistCard> Artists { get; } = new ObservableCollection<ArtistCard>();
         public IReadOnlyList<string> SortOptions { get; } = new[] { "标题", "最近添加", "时长", "专辑" };
@@ -99,6 +162,20 @@ namespace HyperMedia_Lite.ViewModels
         public RelayCommand PlayPlaylistCommand { get; }
         public RelayCommand ExpandPlayerCommand { get; }
         public RelayCommand ClearArtistFilterCommand { get; }
+        public RelayCommand AddSelectedToQueueCommand { get; }
+        public RelayCommand FavoriteSelectedCommand { get; }
+        public RelayCommand RemoveSelectedCommand { get; }
+        public RelayCommand PlaySelectedQueueItemsCommand { get; }
+        public RelayCommand MoveSelectedQueueUpCommand { get; }
+        public RelayCommand MoveSelectedQueueDownCommand { get; }
+        public RelayCommand RemoveSelectedFromQueueCommand { get; }
+        public RelayCommand PlaySelectedPlaylistsCommand { get; }
+        public RelayCommand DeleteSelectedPlaylistsCommand { get; }
+        public RelayCommand SetSelectedAsTileCommand { get; }
+        public RelayCommand PlaySelectedItemsCommand { get; }
+        public RelayCommand MoveSelectedItemsUpCommand { get; }
+        public RelayCommand MoveSelectedItemsDownCommand { get; }
+        public RelayCommand RemoveSelectedItemsFromQueueCommand { get; }
 
         public event MediaItemEventHandler PhotoRequested;
 
@@ -150,7 +227,11 @@ namespace HyperMedia_Lite.ViewModels
                 if (index >= 0 && index < _playback.Queue.Count - 1) _playback.MoveQueueItem(index, index + 1);
             });
             ClearQueueCommand = new RelayCommand(_ => _playback.Stop());
-            ToggleQueuePanelCommand = new RelayCommand(_ => IsQueuePanelOpen = !IsQueuePanelOpen);
+            ToggleQueuePanelCommand = new RelayCommand(_ =>
+            {
+                IsQueuePanelOpen = !IsQueuePanelOpen;
+                if (!IsQueuePanelOpen) IsQueueMultiSelect = false;
+            });
             StartPhotoTileCommand = new RelayCommand(_ => _ = StartPhotoTileAsync());
             SetTileModeCommand = new RelayCommand(parameter =>
             {
@@ -237,6 +318,20 @@ namespace HyperMedia_Lite.ViewModels
             });
             ExpandPlayerCommand = new RelayCommand(_ => PlayerRequested?.Invoke(this, _playback.CurrentItem));
             ClearArtistFilterCommand = new RelayCommand(_ => ClearArtistFilter());
+            AddSelectedToQueueCommand = new RelayCommand(_ => AddSelectedToQueue());
+            FavoriteSelectedCommand = new RelayCommand(_ => FavoriteSelected());
+            RemoveSelectedCommand = new RelayCommand(_ => RemoveSelected());
+            PlaySelectedQueueItemsCommand = new RelayCommand(_ => PlaySelectedQueueItems());
+            MoveSelectedQueueUpCommand = new RelayCommand(_ => MoveSelectedQueueUp());
+            MoveSelectedQueueDownCommand = new RelayCommand(_ => MoveSelectedQueueDown());
+            RemoveSelectedFromQueueCommand = new RelayCommand(_ => _ = RemoveSelectedFromQueueAsync());
+            PlaySelectedPlaylistsCommand = new RelayCommand(_ => PlaySelectedPlaylists());
+            DeleteSelectedPlaylistsCommand = new RelayCommand(_ => _ = DeleteSelectedPlaylistsAsync());
+            SetSelectedAsTileCommand = new RelayCommand(_ => _ = SetSelectedAsTileAsync());
+            PlaySelectedItemsCommand = new RelayCommand(_ => PlaySelectedItems());
+            MoveSelectedItemsUpCommand = new RelayCommand(_ => MoveSelectedItemsUp());
+            MoveSelectedItemsDownCommand = new RelayCommand(_ => MoveSelectedItemsDown());
+            RemoveSelectedItemsFromQueueCommand = new RelayCommand(_ => _ = RemoveSelectedItemsFromQueueAsync());
 
             BuildNavItems();
             LoadFavorites();
@@ -387,6 +482,11 @@ namespace HyperMedia_Lite.ViewModels
 
         public void Select(NavTarget target)
         {
+            // 切换界面时收起所有多选状态，避免操作条串到别的视图。
+            IsMultiSelect = false;
+            IsQueueMultiSelect = false;
+            IsPlaylistMultiSelect = false;
+
             _currentNav = target;
             foreach (var item in NavItems)
             {
@@ -396,6 +496,10 @@ namespace HyperMedia_Lite.ViewModels
                 : NavItems.FirstOrDefault(n => n.Target == target)?.Label ?? "媒体";
             OnPropertyChanged(nameof(ShowMusicTabs));
             OnPropertyChanged(nameof(PageTitle));
+            OnPropertyChanged(nameof(IsLibraryMultiSelectAvailable));
+            OnPropertyChanged(nameof(IsQueueNav));
+            OnPropertyChanged(nameof(IsPhotoNav));
+            OnPropertyChanged(nameof(IsQueueActionAvailable));
             OnPropertyChanged(nameof(IsAlbumsVisible));
             OnPropertyChanged(nameof(IsSongsVisible));
             OnPropertyChanged(nameof(IsArtistsVisible));
@@ -509,6 +613,190 @@ namespace HyperMedia_Lite.ViewModels
             UpdateNavCounts();
             ApplyViews();
             StatusMessage = $"已从媒体库移除：{item.Title}（文件未删除）";
+        }
+
+        public void SyncSelection(IEnumerable<MediaItem> added, IEnumerable<MediaItem> removed)
+        {
+            if (removed != null)
+            {
+                foreach (var item in removed.ToList()) SelectedItems.Remove(item);
+            }
+            if (added != null)
+            {
+                foreach (var item in added)
+                {
+                    if (item != null && !SelectedItems.Contains(item)) SelectedItems.Add(item);
+                }
+            }
+            OnPropertyChanged(nameof(SelectionSummary));
+            NotifySelectionKinds();
+            UpdateStatus();
+        }
+
+        private void NotifySelectionKinds()
+        {
+            OnPropertyChanged(nameof(ShowMediaSelectionActions));
+            OnPropertyChanged(nameof(ShowPhotoSelectionActions));
+            OnPropertyChanged(nameof(ShowQueueSelectionActions));
+            OnPropertyChanged(nameof(IsQueueActionAvailable));
+        }
+
+        public void SyncQueueSelection(IEnumerable<MediaItem> added, IEnumerable<MediaItem> removed)
+        {
+            if (removed != null)
+                foreach (var item in removed.ToList()) SelectedQueueItems.Remove(item);
+            if (added != null)
+                foreach (var item in added)
+                    if (item != null && !SelectedQueueItems.Contains(item)) SelectedQueueItems.Add(item);
+            OnPropertyChanged(nameof(QueueSelectionSummary));
+        }
+
+        public void SyncPlaylistSelection(IEnumerable<Playlist> added, IEnumerable<Playlist> removed)
+        {
+            if (removed != null)
+                foreach (var item in removed.ToList()) SelectedPlaylists.Remove(item);
+            if (added != null)
+                foreach (var item in added)
+                    if (item != null && !SelectedPlaylists.Contains(item)) SelectedPlaylists.Add(item);
+            OnPropertyChanged(nameof(PlaylistSelectionSummary));
+        }
+
+        public async System.Threading.Tasks.Task RemoveSelectedFromQueueAsync()
+        {
+            foreach (var item in SelectedQueueItems.ToList())
+            {
+                await _playback.RemoveFromQueueAsync(item);
+            }
+            SelectedQueueItems.Clear();
+            OnPropertyChanged(nameof(QueueSelectionSummary));
+            StatusMessage = "已从播放队列移除选中项";
+        }
+
+        public void MoveSelectedQueueUp()
+        {
+            foreach (var item in SelectedQueueItems.ToList())
+            {
+                int index = _playback.Queue.IndexOf(item);
+                if (index > 0) _playback.MoveQueueItem(index, index - 1);
+            }
+        }
+
+        public void MoveSelectedQueueDown()
+        {
+            foreach (var item in SelectedQueueItems.Reverse())
+            {
+                int index = _playback.Queue.IndexOf(item);
+                if (index >= 0 && index < _playback.Queue.Count - 1)
+                    _playback.MoveQueueItem(index, index + 1);
+            }
+        }
+
+        public void PlaySelectedQueueItems()
+        {
+            foreach (var item in SelectedQueueItems.ToList())
+            {
+                PlayQueueItemCommand.Execute(item);
+            }
+        }
+
+        public async System.Threading.Tasks.Task DeleteSelectedPlaylistsAsync()
+        {
+            foreach (var playlist in SelectedPlaylists.ToList())
+            {
+                await _playlists.DeleteAsync(playlist);
+            }
+            SelectedPlaylists.Clear();
+            OnPropertyChanged(nameof(PlaylistSelectionSummary));
+            await RefreshPlaylistsAsync();
+            StatusMessage = "已删除选中的播放列表";
+        }
+
+        public void PlaySelectedPlaylists()
+        {
+            foreach (var playlist in SelectedPlaylists.ToList())
+            {
+                PlayPlaylistCommand.Execute(playlist);
+            }
+        }
+
+        public void PlaySelectedItems()
+        {
+            foreach (var item in SelectedItems.ToList())
+            {
+                PlayQueueItemCommand.Execute(item);
+            }
+        }
+
+        public void MoveSelectedItemsUp()
+        {
+            foreach (var item in SelectedItems.ToList())
+            {
+                int index = _playback.Queue.IndexOf(item);
+                if (index > 0) _playback.MoveQueueItem(index, index - 1);
+            }
+        }
+
+        public void MoveSelectedItemsDown()
+        {
+            foreach (var item in SelectedItems.Reverse())
+            {
+                int index = _playback.Queue.IndexOf(item);
+                if (index >= 0 && index < _playback.Queue.Count - 1)
+                    _playback.MoveQueueItem(index, index + 1);
+            }
+        }
+
+        public async System.Threading.Tasks.Task RemoveSelectedItemsFromQueueAsync()
+        {
+            foreach (var item in SelectedItems.ToList())
+            {
+                await _playback.RemoveFromQueueAsync(item);
+            }
+            SelectedItems.Clear();
+            OnPropertyChanged(nameof(SelectionSummary));
+            NotifySelectionKinds();
+        }
+
+        private async System.Threading.Tasks.Task SetSelectedAsTileAsync()
+        {
+            var photos = SelectedItems.Where(i => i != null && i.Kind == MediaKind.Photo).ToList();
+            if (photos.Count == 0) return;
+            await TileService.StartPhotoSlideshowAsync(photos);
+            StatusMessage = $"已将 {photos.Count} 张图片设为磁贴轮播";
+        }
+
+        public void AddSelectedToQueue()
+        {
+            foreach (var item in SelectedItems.ToList()) AddToQueue(item);
+        }
+
+        public async System.Threading.Tasks.Task AddSelectedToPlaylist(Playlist playlist)
+        {
+            if (playlist == null) return;
+            int count = 0;
+            foreach (var item in SelectedItems.ToList())
+            {
+                await _playlists.ToggleItemAsync(playlist, item.Path);
+                count++;
+            }
+            await RefreshPlaylistsAsync();
+            StatusMessage = $"已添加 {count} 项到播放列表「{playlist.Name}」";
+        }
+
+        public void FavoriteSelected()
+        {
+            foreach (var item in SelectedItems.ToList())
+            {
+                if (item != null && !item.IsFavorite) ToggleFavorite(item);
+            }
+        }
+
+        public void RemoveSelected()
+        {
+            foreach (var item in SelectedItems.ToList()) RemoveFromLibrary(item);
+            SelectedItems.Clear();
+            OnPropertyChanged(nameof(SelectionSummary));
+            NotifySelectionKinds();
         }
 
         public void ClearSavedFiles()
@@ -893,6 +1181,7 @@ namespace HyperMedia_Lite.ViewModels
                 Playlists.Add(playlist);
             }
             OnPropertyChanged(nameof(IsPlaylistsVisible));
+            OnPropertyChanged(nameof(PlayAllText));
             SetCount(NavTarget.Playlists, Playlists.Count);
             await System.Threading.Tasks.Task.CompletedTask;
         }
@@ -1277,7 +1566,9 @@ namespace HyperMedia_Lite.ViewModels
 
         public bool HasArtistFilter => !string.IsNullOrWhiteSpace(_artistFilter);
 
-        public string PlayAllText => $"无序播放所有 ({VisiblePlayableItems().Count})";
+        public string PlayAllText => _currentNav == NavTarget.Playlists
+            ? $"无序播放所有 ({Playlists.Count})"
+            : $"无序播放所有 ({VisiblePlayableItems().Count})";
 
         public string SortDescription => _sortMode == SortMode.Title ? "标题"
             : _sortMode == SortMode.DateCreated ? "添加时间"
