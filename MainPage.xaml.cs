@@ -589,6 +589,52 @@ namespace HyperMedia_Lite
             catch { return null; }
         }
 
+        private static ScrollViewer FindScrollViewer(DependencyObject root)
+        {
+            if (root == null) return null;
+            if (root is ScrollViewer viewer && viewer.ScrollableHeight > 0) return viewer;
+            int count = VisualTreeHelper.GetChildrenCount(root);
+            for (int i = 0; i < count; i++)
+            {
+                var found = FindScrollViewer(VisualTreeHelper.GetChild(root, i));
+                if (found != null) return found;
+            }
+            return null;
+        }
+
+        /// <summary>把指定行滚到列表垂直中间位置。</summary>
+        private static void ScrollToIndexCentered(ListView list, int index)
+        {
+            try
+            {
+                if (list == null || index < 0 || index >= list.Items.Count) return;
+                var item = list.Items[index];
+                var container = list.ContainerFromIndex(index) as ListViewItem;
+                if (container == null)
+                {
+                    // 虚拟化时容器可能还没生成：先滚过去并强制布局，再取容器。
+                    list.ScrollIntoView(item, ScrollIntoViewAlignment.Default);
+                    list.UpdateLayout();
+                    container = list.ContainerFromIndex(index) as ListViewItem;
+                    if (container == null) return;
+                }
+
+                var viewer = FindScrollViewer(list);
+                if (viewer == null)
+                {
+                    list.ScrollIntoView(item);
+                    return;
+                }
+
+                var point = container.TransformToVisual(viewer)
+                    .TransformPoint(new Windows.Foundation.Point(0, 0));
+                double itemTop = point.Y + viewer.VerticalOffset;
+                double target = itemTop - (viewer.ViewportHeight - container.ActualHeight) / 2;
+                viewer.ChangeView(null, Math.Max(0, target), null, false);
+            }
+            catch { }
+        }
+
         private void UpdateLyricHighlight()
         {
             try
@@ -596,12 +642,11 @@ namespace HyperMedia_Lite
                 var list = ActiveLyricList;
                 if (list == null) return;
 
-                // 当前行的字号/字重/颜色由 LyricLine.IsCurrent 通过绑定驱动，
-                // 不再手动设置容器属性（ScrollIntoView 时容器可能尚未生成）。
+                // 当前行的字号/字重/颜色由 LyricLine.IsCurrent 通过绑定驱动。
                 int index = _viewModel.LyricIndex;
                 if (index >= 0 && index < list.Items.Count)
                 {
-                    list.ScrollIntoView(list.Items[index]);
+                    ScrollToIndexCentered(list, index);
                 }
 
                 if (FullLyricPanel.Visibility == Visibility.Visible)
@@ -731,7 +776,7 @@ namespace HyperMedia_Lite
                 int index = _viewModel.LyricIndex;
                 if (index >= 0 && index < FullLyricList.Items.Count)
                 {
-                    FullLyricList.ScrollIntoView(FullLyricList.Items[index]);
+                    ScrollToIndexCentered(FullLyricList, index);
                 }
             }
             catch { }
