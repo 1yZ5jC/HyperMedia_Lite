@@ -287,6 +287,11 @@ namespace HyperMedia_Lite
             _viewModel.SortIndex = 2;
         }
 
+        private void SetSortAlbum_Click(object sender, RoutedEventArgs e)
+        {
+            _viewModel.SortIndex = 3;
+        }
+
         private void AlbumGrid_ItemClick(object sender, ItemClickEventArgs e)
         {
             _ = _viewModel.OpenAlbumAsync(e.ClickedItem as AlbumCard);

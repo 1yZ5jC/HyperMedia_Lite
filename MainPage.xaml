@@ -5,6 +5,7 @@
     xmlns:models="using:HyperMedia_Lite.Models"
     xmlns:helpers="using:HyperMedia_Lite.Helpers"
     xmlns:controls="using:HyperMedia_Lite.Controls"
+    xmlns:vm="using:HyperMedia_Lite.ViewModels"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
@@ -22,7 +23,7 @@
         <helpers:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
         <helpers:TextToVisibilityConverter x:Key="TextToVisibility"/>
 
-        <!-- 媒体库右键菜单 -->
+        <!-- 媒体库右键菜单（须先于引用它的模板定义） -->
         <MenuFlyout x:Key="MediaContextMenu">
             <MenuFlyoutItem Text="播放" Click="ContextPlay_Click"/>
             <MenuFlyoutItem Text="加入播放队列" Click="ContextQueue_Click"
@@ -38,6 +39,39 @@
             <MenuFlyoutItem Text="{Binding FavoriteLabel}" Click="ContextFavorite_Click"/>
             <MenuFlyoutItem Text="从媒体库移除" Click="ContextRemove_Click"/>
         </MenuFlyout>
+
+        <DataTemplate x:Key="SongAlbumHeaderTemplate">
+            <TextBlock Text="{Binding Album}" FontSize="14" FontWeight="SemiBold"
+                       Foreground="{StaticResource AccentBrush}" Margin="0,10,0,4"/>
+        </DataTemplate>
+        <DataTemplate x:Key="SongItemTemplate" x:DataType="models:MediaItem">
+            <Grid Height="48" Padding="8,0">
+                <Grid.ContextFlyout>
+                    <StaticResource ResourceKey="MediaContextMenu"/>
+                </Grid.ContextFlyout>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{x:Bind Title, Mode=OneWay}" FontSize="13"
+                           Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"
+                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                <TextBlock Grid.Column="1" Text="{x:Bind Subtitle, Mode=OneWay}" FontSize="12"
+                           Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"
+                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                <TextBlock Grid.Column="2" Text="{x:Bind Album, Mode=OneWay}" FontSize="12"
+                           Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"
+                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                <TextBlock Grid.Column="3" Text="{x:Bind DurationText, Mode=OneWay}"
+                           FontSize="12" VerticalAlignment="Center"
+                           Foreground="{StaticResource TextSecondaryBrush}" Margin="12,0,4,0"/>
+            </Grid>
+        </DataTemplate>
+        <helpers:SongRowTemplateSelector x:Key="SongRowSelector"
+                                         HeaderTemplate="{StaticResource SongAlbumHeaderTemplate}"
+                                         ItemTemplate="{StaticResource SongItemTemplate}"/>
 
         <Style x:Key="NavItemStyle" TargetType="ListViewItem">
             <Setter Property="Padding" Value="0"/>
@@ -97,6 +131,43 @@
                             </VisualStateManager.VisualStateGroups>
                             <ContentPresenter HorizontalAlignment="Center"
                                               VerticalAlignment="Center"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 播放顺序按钮：悬停用浅色半透明，避免默认模板的黑色阴影 -->
+        <Style x:Key="PlayerModeButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid x:Name="RootGrid" Background="Transparent">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal"/>
+                                    <VisualState x:Name="PointerOver">
+                                        <VisualState.Setters>
+                                            <Setter Target="RootGrid.Background" Value="#33FFFFFF"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Pressed">
+                                        <VisualState.Setters>
+                                            <Setter Target="RootGrid.Background" Value="#55FFFFFF"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Disabled">
+                                        <VisualState.Setters>
+                                            <Setter Target="RootGrid.Opacity" Value="0.4"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Grid>
                     </ControlTemplate>
                 </Setter.Value>
@@ -454,16 +525,6 @@
                                 <TextBlock x:Name="ShuffleAllText" Text="{Binding PlayAllText}" Margin="8,0,0,0" FontSize="14"/>
                             </StackPanel>
                         </Button>
-                        <Button Margin="24,0,0,0" Padding="0" BorderThickness="0" Background="Transparent"
-                                Foreground="{StaticResource TextPrimaryBrush}"
-                                AutomationProperties.Name="排序依据">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="排序依据:"/>
-                                <TextBlock Text="{Binding SortDescription}" Margin="6,0,0,0"
-                                           Foreground="{StaticResource AccentBrush}"/>
-                                <FontIcon Glyph="&#xE70D;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="6,0,0,0"/>
-                            </StackPanel>
-                        </Button>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal">
                         <ComboBox x:Name="SortComboBox" ItemsSource="{Binding SortOptions}" SelectedIndex="{Binding SortIndex, Mode=TwoWay}"
@@ -502,6 +563,7 @@
                                     <MenuFlyoutItem Text="按标题排序" Click="SetSortTitle_Click"/>
                                     <MenuFlyoutItem Text="按最近添加排序" Click="SetSortDate_Click"/>
                                     <MenuFlyoutItem Text="按时长排序" Click="SetSortDuration_Click"/>
+                                    <MenuFlyoutItem Text="按专辑排序" Click="SetSortAlbum_Click"/>
                                 </MenuFlyout>
                             </Button.Flyout>
                         </Button>
@@ -550,37 +612,12 @@
 
                 <!-- 歌曲 -->
                 <ListView x:Name="SongList" Padding="28,8,28,20"
-                          ItemsSource="{Binding Songs}" ItemContainerStyle="{StaticResource SongItemStyle}"
+                          ItemsSource="{Binding SongRows}"
+                          ItemTemplateSelector="{StaticResource SongRowSelector}"
+                          ItemContainerStyle="{StaticResource SongItemStyle}"
                           SelectionMode="None" IsItemClickEnabled="True"
                           ItemClick="SongList_ItemClick"
                           Visibility="{Binding IsSongsVisible, Converter={StaticResource BoolToVisibility}}">
-                    <ListView.ItemTemplate>
-                        <DataTemplate x:DataType="models:MediaItem">
-                            <Grid Height="56" Padding="8,0">
-                                <Grid.ContextFlyout>
-                                    <StaticResource ResourceKey="MediaContextMenu"/>
-                                </Grid.ContextFlyout>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="40"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <FontIcon Grid.Column="0" Glyph="{x:Bind KindGlyph, Mode=OneWay}"
-                                          FontFamily="Segoe MDL2 Assets" FontSize="16"
-                                          Foreground="{StaticResource NavForegroundBrush}"/>
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock Text="{x:Bind Title, Mode=OneWay}" FontSize="14"
-                                               Foreground="{StaticResource TextPrimaryBrush}"
-                                               TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Text="{x:Bind Subtitle, Mode=OneWay}" FontSize="12"
-                                               Foreground="{StaticResource TextSecondaryBrush}"/>
-                                </StackPanel>
-                                <TextBlock Grid.Column="2" Text="{x:Bind DurationText, Mode=OneWay}"
-                                           FontSize="12" VerticalAlignment="Center"
-                                           Foreground="{StaticResource TextSecondaryBrush}" Margin="12,0,4,0"/>
-                            </Grid>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
                 </ListView>
 
                 <!-- 歌手 -->
@@ -810,12 +847,13 @@
                         <StackPanel x:Name="VolumePanel" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                             <!-- 播放顺序按钮移到右侧 -->
                             <Button x:Name="ModeButton" Width="96" Height="40" Padding="0" Margin="0,0,12,0"
-                                    Background="Transparent" BorderThickness="0" Foreground="White"
+                                    Style="{StaticResource PlayerModeButtonStyle}"
                                     Visibility="{Binding IsCurrentAudio, Converter={StaticResource BoolToVisibility}}"
                                     Command="{Binding CyclePlayModeCommand}"
                                     AutomationProperties.Name="切换播放顺序">
                                 <StackPanel Orientation="Horizontal">
-                                    <FontIcon Glyph="{Binding PlayModeGlyph}" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
+                                    <FontIcon Glyph="{Binding PlayModeGlyph}" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                                              Foreground="White"/>
                                     <TextBlock x:Name="PlayerModeText" Text="{Binding PlayModeText}" FontSize="11" Margin="6,0,0,0"
                                                VerticalAlignment="Center" Foreground="White"/>
                                 </StackPanel>
@@ -1224,11 +1262,12 @@
                     <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right"
                                 VerticalAlignment="Center">
                         <Button x:Name="NowPlayingModeButton" Width="90" Height="34" Padding="0" Margin="0,0,12,0"
-                                Background="Transparent" BorderThickness="0" Foreground="White"
+                                Style="{StaticResource PlayerModeButtonStyle}"
                                 Visibility="{Binding IsPlayOrderVisible, Converter={StaticResource BoolToVisibility}}"
                                 Command="{Binding CyclePlayModeCommand}" AutomationProperties.Name="切换播放顺序">
                             <StackPanel Orientation="Horizontal">
-                                <FontIcon Glyph="{Binding PlayModeGlyph}" FontFamily="Segoe MDL2 Assets" FontSize="14"/>
+                                <FontIcon Glyph="{Binding PlayModeGlyph}" FontFamily="Segoe MDL2 Assets" FontSize="14"
+                                          Foreground="White"/>
                                 <TextBlock Text="{Binding PlayModeText}" FontSize="11" Margin="6,0,0,0"
                                            VerticalAlignment="Center" Foreground="White"/>
                             </StackPanel>
@@ -1286,23 +1325,23 @@
                                             <Setter Property="BorderThickness" Value="1"/>
                                         </Style>
                                     </Flyout.FlyoutPresenterStyle>
-                                    <StackPanel Width="240" Padding="8">
+                                    <StackPanel Width="220" MaxWidth="260" Padding="8">
                                         <TextBlock Text="播放顺序" FontSize="12" Foreground="#CCFFFFFF"/>
-                                        <StackPanel Orientation="Horizontal">
-                                            <Button Content="顺序" Padding="8,4" Margin="0,0,6,0"
+                                        <controls:WordWrapPanel>
+                                            <Button Content="顺序" Padding="8,4" Margin="0,0,6,6"
                                                     Command="{Binding SetPlayModeCommand}" CommandParameter="Sequential"/>
-                                            <Button Content="随机" Padding="8,4" Margin="0,0,6,0"
+                                            <Button Content="随机" Padding="8,4" Margin="0,0,6,6"
                                                     Command="{Binding SetPlayModeCommand}" CommandParameter="Shuffle"/>
-                                            <Button Content="列表循环" Padding="8,4" Margin="0,0,6,0"
+                                            <Button Content="列表循环" Padding="8,4" Margin="0,0,6,6"
                                                     Command="{Binding SetPlayModeCommand}" CommandParameter="RepeatAll"/>
-                                            <Button Content="单曲循环" Padding="8,4" Margin="0,0,6,0"
+                                            <Button Content="单曲循环" Padding="8,4" Margin="0,0,6,6"
                                                     Command="{Binding SetPlayModeCommand}" CommandParameter="RepeatOne"/>
-                                        </StackPanel>
-                                        <Button Content="只播放本曲" Padding="8,4" Margin="0,6,0,0"
-                                                Command="{Binding SetPlayModeCommand}" CommandParameter="PlayOnce"/>
+                                            <Button Content="只播放本曲" Padding="8,4" Margin="0,0,6,6"
+                                                    Command="{Binding SetPlayModeCommand}" CommandParameter="PlayOnce"/>
+                                        </controls:WordWrapPanel>
 
                                         <TextBlock Text="播放速度" FontSize="12" Foreground="#CCFFFFFF" Margin="0,14,0,6"/>
-                                        <Button Content="{Binding RateText}" Padding="12,4" Margin="0,12,0,0"
+                                        <Button Content="{Binding RateText}" Padding="12,4" Margin="0,0,0,6"
                                                 Command="{Binding CycleRateCommand}"/>
                                     </StackPanel>
                                 </Flyout>

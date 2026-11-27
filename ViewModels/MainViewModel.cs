@@ -22,6 +22,13 @@ namespace HyperMedia_Lite.ViewModels
         Album
     }
 
+    /// <summary>歌曲列表里的专辑分组（标题 + 该专辑曲目）。</summary>
+    public sealed class AlbumSongGroup
+    {
+        public string Album { get; set; }
+        public ObservableCollection<MediaItem> Items { get; } = new ObservableCollection<MediaItem>();
+    }
+
     public delegate void MediaItemEventHandler(object sender, MediaItem item);
 
     /// <summary>
@@ -56,6 +63,7 @@ namespace HyperMedia_Lite.ViewModels
         public ObservableCollection<MediaItem> CurrentItems { get; } = new ObservableCollection<MediaItem>();
         public ObservableCollection<Playlist> Playlists { get; } = new ObservableCollection<Playlist>();
         public ObservableCollection<MediaItem> Songs { get; } = new ObservableCollection<MediaItem>();
+        public ObservableCollection<object> SongRows { get; } = new ObservableCollection<object>();
         public ObservableCollection<AlbumCard> Albums { get; } = new ObservableCollection<AlbumCard>();
         public ObservableCollection<ArtistCard> Artists { get; } = new ObservableCollection<ArtistCard>();
         public IReadOnlyList<string> SortOptions { get; } = new[] { "标题", "最近添加", "时长", "专辑" };
@@ -582,6 +590,27 @@ namespace HyperMedia_Lite.ViewModels
             foreach (var item in list)
             {
                 Songs.Add(item);
+            }
+
+            // 歌曲列表：仅「专辑」排序时插入专辑标题行，其它排序保持平铺。
+            SongRows.Clear();
+            if (_sortMode == SortMode.Album)
+            {
+                foreach (var group in list.GroupBy(KeyForAlbum, StringComparer.OrdinalIgnoreCase))
+                {
+                    SongRows.Add(new AlbumSongGroup { Album = group.Key.Split('\u0001')[0] });
+                    foreach (var item in group)
+                    {
+                        SongRows.Add(item);
+                    }
+                }
+            }
+            else
+            {
+                foreach (var item in list)
+                {
+                    SongRows.Add(item);
+                }
             }
 
             // 专辑：按「专辑名 + 艺人」分组
