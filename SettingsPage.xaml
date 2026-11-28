@@ -226,6 +226,27 @@
                     </StackPanel>
                 </Border>
 
+                <!-- 图片查看器 -->
+                <TextBlock Text="图片查看器" FontSize="18" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}"/>
+                <Border Background="{StaticResource SurfaceBrush}" Padding="20" Margin="0,10,0,28">
+                    <StackPanel>
+                        <TextBlock Text="鼠标滚轮" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
+                        <ComboBox x:Name="WheelModeCombo" Width="200" Margin="0,8,0,0"
+                                  SelectionChanged="WheelModeCombo_SelectionChanged">
+                            <ComboBoxItem Content="缩放图片" Tag="Zoom"/>
+                            <ComboBoxItem Content="平移画面" Tag="Scroll"/>
+                            <ComboBoxItem Content="切换图片" Tag="SwitchPhoto"/>
+                        </ComboBox>
+                        <TextBlock Text="缩放模式下滚轮始终缩放，不会因图片放大程度自动变成平移；平移模式下滚轮上下移动画面，按住 Shift 横向移动；切换图片模式下滚轮向上为上一张、向下为下一张。"
+                                   FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap"
+                                   Foreground="{StaticResource TextSecondaryBrush}"/>
+                        <TextBlock Text="放大后也可以用鼠标左键拖动图片来平移。"
+                                   FontSize="11" Margin="0,8,0,0"
+                                   Foreground="{StaticResource TextSecondaryBrush}"/>
+                    </StackPanel>
+                </Border>
+
                 <!-- 诊断 -->
                 <TextBlock Text="诊断" FontSize="18" FontWeight="SemiBold"
                            Foreground="{StaticResource TextPrimaryBrush}"/>

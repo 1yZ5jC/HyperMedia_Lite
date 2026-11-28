@@ -77,6 +77,25 @@ namespace HyperMedia_Lite
                     break;
                 }
             }
+
+            string wheelMode = PhotoViewerSettings.MouseWheelMode;
+            foreach (var item in WheelModeCombo.Items)
+            {
+                if (item is ComboBoxItem comboItem && comboItem.Tag is string tag && tag == wheelMode)
+                {
+                    WheelModeCombo.SelectedItem = comboItem;
+                    break;
+                }
+            }
+        }
+
+        private void WheelModeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (WheelModeCombo.SelectedItem is ComboBoxItem item && item.Tag is string tag)
+            {
+                PhotoViewerSettings.MouseWheelMode = tag;
+                DebugLog.Write("WHEEL", $"MouseWheelMode changed to {tag}");
+            }
         }
 
         private void TileModeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)

@@ -24,7 +24,7 @@ namespace HyperMedia_Lite.Services
             set => ApplicationData.Current.LocalSettings.Values[SlideSecondsKey] = value;
         }
 
-        /// <summary>鼠标滚轮行为：Zoom = 缩放，Scroll = 平移画面。</summary>
+        /// <summary>鼠标滚轮行为：Zoom = 缩放，Scroll = 平移画面，SwitchPhoto = 切换图片。</summary>
         public static string MouseWheelMode
         {
             get => ApplicationData.Current.LocalSettings.Values.TryGetValue(MouseWheelModeKey, out object value)

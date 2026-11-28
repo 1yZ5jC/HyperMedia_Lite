@@ -80,13 +80,25 @@ namespace HyperMedia_Lite.Controls
         public event EventHandler SwipeNextRequested;
         /// <summary>图片处于适应窗口状态时向右滑动，请求显示上一张。</summary>
         public event EventHandler SwipePreviousRequested;
+        /// <summary>滚轮模式下请求切换到下一张图片。</summary>
+        public event EventHandler WheelNextRequested;
+        /// <summary>滚轮模式下请求切换到上一张图片。</summary>
+        public event EventHandler WheelPreviousRequested;
 
-        public float CurrentZoomFactor => Scroller.ZoomFactor;
+        /// <summary>缩放目标值。ChangeView 是异步的，滚轮连续触发时 Scroller.ZoomFactor 会是旧值，
+        /// 必须用我们最后请求的值作为基准，否则连续滚动会丢事件。</summary>
+        public float CurrentZoomFactor => _targetZoom > 0 ? _targetZoom : Scroller.ZoomFactor;
 
-        public bool IsAtFitZoom => _lastFitZoom > 0 && Math.Abs(Scroller.ZoomFactor - _lastFitZoom) < 0.01f;
+        public bool IsAtFitZoom => _lastFitZoom > 0 && Math.Abs(CurrentZoomFactor - _lastFitZoom) < 0.01f;
 
         private bool _suppressViewChange;
         private float _lastFitZoom = -1f;
+        private float _targetZoom = -1f;
+        private int _lastZoomRequestTicks;
+        // 我们最后一次设置的滚动偏移；ScrollViewer 自行滚屏后不能拿它当缩放锚点。
+        private double _lastOffsetX;
+        private double _lastOffsetY;
+        private int _lastWheelSwitchTicks;
         private double _currentRotation;
         private readonly CompositeTransform _imageTransform = new CompositeTransform();
         private readonly ScaleTransform _transitionScale = new ScaleTransform();
@@ -104,7 +116,7 @@ namespace HyperMedia_Lite.Controls
         private readonly Storyboard _zoomBadgeFade = new Storyboard();
 
         // 鼠标拖动平移放大后的图片。
-        private int _panPointerId = -1;
+        private uint _panPointerId = uint.MaxValue;
         private Point _panStart;
         private double _panStartX;
         private double _panStartY;
@@ -132,6 +144,11 @@ namespace HyperMedia_Lite.Controls
                     ZoomBadge.Visibility = Visibility.Collapsed;
                 }
             };
+
+            // ScrollViewer 在内容放大后会自己处理滚轮并把事件标记为 Handled，
+            // 普通 XAML handler 从此不再触发；必须用 handledEventsToo 注册才能持续接管。
+            Scroller.AddHandler(UIElement.PointerWheelChangedEvent,
+                new PointerEventHandler(Scroller_PointerWheelChanged), true);
         }
 
         private static void OnSourceChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -379,6 +396,10 @@ namespace HyperMedia_Lite.Controls
 
         private void ChangeView(float zoom, double? offsetX = null, double? offsetY = null)
         {
+            _targetZoom = zoom;
+            _lastZoomRequestTicks = Environment.TickCount;
+            if (offsetX.HasValue) _lastOffsetX = offsetX.Value;
+            if (offsetY.HasValue) _lastOffsetY = offsetY.Value;
             _suppressViewChange = true;
             if (UwpCompat.HasContractV2)
             {
@@ -414,7 +435,7 @@ namespace HyperMedia_Lite.Controls
             float target = IsAtFitZoom || _lastFitZoom <= 0
                 ? DoubleTapZoomTarget
                 : _lastFitZoom;
-            ZoomAt(position, target / Scroller.ZoomFactor);
+            ZoomAt(position, target / CurrentZoomFactor);
             e.Handled = true;
             DoubleTappedOccurred?.Invoke(this, EventArgs.Empty);
         }
@@ -467,33 +488,74 @@ namespace HyperMedia_Lite.Controls
                 return;
             }
 
-            if (PhotoViewerSettings.MouseWheelMode == "Scroll")
+            string mode = PhotoViewerSettings.MouseWheelMode;
+            // handledEventsToo 下 ScrollViewer 可能已经先滚过屏，这里读到的是滚动后的值。
+            double preX = Scroller.HorizontalOffset;
+            double preY = Scroller.VerticalOffset;
+            DebugLog.Write("WHEEL", $"ImageViewer mode={mode} delta={delta} " +
+                $"target={CurrentZoomFactor:F3} actual={Scroller.ZoomFactor:F3} " +
+                $"offset=({preX:F0},{preY:F0}) last=({_lastOffsetX:F0},{_lastOffsetY:F0})");
+
+            if (mode == "SwitchPhoto")
             {
-                // 滚轮平移画面；按住 Shift 改为横向平移。
-                bool shift = Window.Current.CoreWindow.GetKeyState(VirtualKey.Shift) == CoreVirtualKeyStates.Down;
-                double amount = delta > 0 ? -64 : 64;
-                if (shift)
+                // 触控板惯性会产生大量 wheel 事件，做简单节流，避免一次滚动翻很多张。
+                if (Environment.TickCount - _lastWheelSwitchTicks < 180)
                 {
-                    double maxX = Math.Max(0, Scroller.ExtentWidth - Scroller.ViewportWidth);
-                    ChangeView(Scroller.ZoomFactor,
-                        Clamp(Scroller.HorizontalOffset + amount, 0, maxX), null);
+                    e.Handled = true;
+                    return;
+                }
+                _lastWheelSwitchTicks = Environment.TickCount;
+                if (delta > 0)
+                {
+                    WheelPreviousRequested?.Invoke(this, EventArgs.Empty);
                 }
                 else
                 {
+                    WheelNextRequested?.Invoke(this, EventArgs.Empty);
+                }
+                DebugLog.Write("WHEEL", $"ImageViewer switch photo delta={delta}");
+                e.Handled = true;
+                return;
+            }
+
+            if (mode == "Scroll")
+            {
+                bool shift = Window.Current.CoreWindow.GetKeyState(VirtualKey.Shift) == CoreVirtualKeyStates.Down;
+                double amount = delta > 0 ? -64 : 64;
+                bool defaultScrolled = Math.Abs(preX - _lastOffsetX) > 0.5 || Math.Abs(preY - _lastOffsetY) > 0.5;
+                if (shift)
+                {
+                    // 默认纵向滚动由 ScrollViewer 做了，这里改为横向并把纵向还原。
+                    double maxX = Math.Max(0, Scroller.ExtentWidth - Scroller.ViewportWidth);
+                    ChangeView(CurrentZoomFactor,
+                        Clamp(_lastOffsetX + amount, 0, maxX), _lastOffsetY);
+                }
+                else if (!defaultScrolled)
+                {
+                    // 内容还不需要滚动时由我们自己滚，避免完全没反应。
                     double maxY = Math.Max(0, Scroller.ExtentHeight - Scroller.ViewportHeight);
-                    ChangeView(Scroller.ZoomFactor, null,
-                        Clamp(Scroller.VerticalOffset + amount, 0, maxY));
+                    ChangeView(CurrentZoomFactor, null,
+                        Clamp(_lastOffsetY + amount, 0, maxY));
+                }
+                else
+                {
+                    _lastOffsetX = preX;
+                    _lastOffsetY = preY;
                 }
                 e.Handled = true;
                 return;
             }
 
-            // 滚轮缩放；按住 Ctrl 时步长更大，方便快速放大。
+            // 滚轮缩放。不要调用 CancelDirectManipulations：它会取消刚发出的 ChangeView，
+            // 导致目标缩放一路变化而实际缩放卡住不动。
             var control = Window.Current.CoreWindow.GetKeyState(VirtualKey.Control);
             bool fast = control == CoreVirtualKeyStates.Down;
-            float step = fast ? WheelZoomStep * WheelZoomStep : WheelZoomStep;
+            // 按 delta 大小缩放步长：一个标准滚轮格（120）约 1.15 倍，触控板小增量更平滑。
+            double exponent = delta / 120.0 * (fast ? 2.0 : 1.0);
+            float step = (float)Math.Pow(WheelZoomStep, exponent);
             Point position = point.Position;
-            ZoomAt(position, delta > 0 ? step : 1f / step);
+            ZoomAt(position, step);
+            DebugLog.Write("WHEEL", $"ImageViewer requested zoom={CurrentZoomFactor:F3} step={step:F3}");
             e.Handled = true;
         }
 
@@ -547,7 +609,7 @@ namespace HyperMedia_Lite.Controls
 
             double maxX = Math.Max(0, Scroller.ExtentWidth - Scroller.ViewportWidth);
             double maxY = Math.Max(0, Scroller.ExtentHeight - Scroller.ViewportHeight);
-            ChangeView(Scroller.ZoomFactor,
+            ChangeView(CurrentZoomFactor,
                 Clamp(_panStartX - dx, 0, maxX),
                 Clamp(_panStartY - dy, 0, maxY));
             e.Handled = true;
@@ -559,8 +621,17 @@ namespace HyperMedia_Lite.Controls
             {
                 return;
             }
-            _panPointerId = -1;
-            if (Scroller.HasPointerCapture(e.Pointer.PointerId))
+            _panPointerId = uint.MaxValue;
+            bool captured = false;
+            foreach (var capturedPointer in Scroller.PointerCaptures)
+            {
+                if (capturedPointer.PointerId == e.Pointer.PointerId)
+                {
+                    captured = true;
+                    break;
+                }
+            }
+            if (captured)
             {
                 Scroller.ReleasePointerCapture(e.Pointer);
             }
@@ -568,7 +639,7 @@ namespace HyperMedia_Lite.Controls
 
         public void ZoomAt(Point center, float factor)
         {
-            float oldZoom = Scroller.ZoomFactor;
+            float oldZoom = CurrentZoomFactor;
             float zoom = Math.Max(Scroller.MinZoomFactor,
                 Math.Min(Scroller.MaxZoomFactor, oldZoom * factor));
             if (Math.Abs(zoom - oldZoom) < 0.0001f || oldZoom <= 0)
@@ -582,8 +653,8 @@ namespace HyperMedia_Lite.Controls
             double imageH = TheImage.ActualHeight;
 
             // 指针下的图片像素在缩放后保持不动。
-            double leftOld = (viewportW - imageW * oldZoom) / 2 - Scroller.HorizontalOffset;
-            double topOld = (viewportH - imageH * oldZoom) / 2 - Scroller.VerticalOffset;
+            double leftOld = (viewportW - imageW * oldZoom) / 2 - _lastOffsetX;
+            double topOld = (viewportH - imageH * oldZoom) / 2 - _lastOffsetY;
             double relX = (center.X - leftOld) / oldZoom;
             double relY = (center.Y - topOld) / oldZoom;
 
@@ -603,6 +674,14 @@ namespace HyperMedia_Lite.Controls
         private void Scroller_ViewChanged(object sender, ScrollViewerViewChangedEventArgs e)
         {
             float zoom = Scroller.ZoomFactor;
+            if (!e.IsIntermediate && Environment.TickCount - _lastZoomRequestTicks > 250)
+            {
+                // 连续滚轮期间不拿滞后的实际值覆盖目标值；请求结束后再同步
+                // 捏合 / 被限制到上下限等外部变化，以及鼠标拖动产生的偏移。
+                _targetZoom = zoom;
+                _lastOffsetX = Scroller.HorizontalOffset;
+                _lastOffsetY = Scroller.VerticalOffset;
+            }
             if ((e.IsIntermediate || !IsAtFitZoom) && Math.Abs(zoom - _lastBadgeZoom) > 0.005f)
             {
                 _lastBadgeZoom = zoom;
@@ -654,7 +733,7 @@ namespace HyperMedia_Lite.Controls
                 _zoomBadgeTimer.Tick += OnBadgeTimerTick;
             }
 
-            ZoomText.Text = string.Format("{0:0}%", Scroller.ZoomFactor * 100);
+            ZoomText.Text = string.Format("{0:0}%", CurrentZoomFactor * 100);
             ZoomBadge.Visibility = Visibility.Visible;
             ZoomBadge.Opacity = 1;
             _zoomBadgeFade.Stop();

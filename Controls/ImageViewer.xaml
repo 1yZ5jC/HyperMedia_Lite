@@ -24,7 +24,7 @@
                       ViewChanged="Scroller_ViewChanged"
                       DoubleTapped="Scroller_DoubleTapped"
                        ManipulationCompleted="Scroller_ManipulationCompleted"
-                      PointerWheelChanged="Scroller_PointerWheelChanged"
+                      
                        PointerPressed="Scroller_PointerPressed"
                        PointerMoved="Scroller_PointerMoved"
                        PointerReleased="Scroller_PointerReleased"

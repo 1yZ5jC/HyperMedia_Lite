@@ -121,6 +121,54 @@
             <Setter Property="VerticalContentAlignment" Value="Stretch"/>
         </Style>
 
+        <!-- 胶片条：当前图片用强调色边框凸显，悬停用浅色反馈（不用默认黑色模板） -->
+        <Style x:Key="FilmstripItemStyle" TargetType="ListViewItem">
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListViewItem">
+                        <Border x:Name="RootBorder" Margin="3,0" Background="Transparent"
+                                BorderBrush="Transparent" BorderThickness="2">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal"/>
+                                    <VisualState x:Name="PointerOver">
+                                        <VisualState.Setters>
+                                            <Setter Target="RootBorder.Background" Value="#33FFFFFF"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Pressed">
+                                        <VisualState.Setters>
+                                            <Setter Target="RootBorder.Background" Value="#55FFFFFF"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Disabled">
+                                        <VisualState.Setters>
+                                            <Setter Target="RootBorder.Opacity" Value="0.4"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                                <VisualStateGroup x:Name="SelectionStates">
+                                    <VisualState x:Name="Unselected"/>
+                                    <VisualState x:Name="Selected">
+                                        <VisualState.Setters>
+                                            <Setter Target="RootBorder.BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- 主页卡片：撑满列表项宽度，保证每张卡片一样大 -->
         <Style x:Key="HomeCardItemStyle" TargetType="ListViewItem">
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
@@ -1885,11 +1933,6 @@
                             Foreground="{StaticResource OverlaySliderFillBrush}"
                             Background="{StaticResource OverlaySliderTrackBrush}"
                             AutomationProperties.Name="缩放"/>
-                    <Button x:Name="WheelModeButton" Style="{StaticResource OverlayIconButtonStyle}" Margin="0,0,4,0"
-                            ToolTipService.ToolTip="滚轮模式" Click="WheelMode_Click"
-                            AutomationProperties.Name="鼠标滚轮模式">
-                        <TextBlock Text="滚轮" FontSize="10" Foreground="White"/>
-                    </Button>
                     <Button x:Name="PhotoFitButton" Style="{StaticResource OverlayIconButtonStyle}" Margin="0,0,4,0"
                             ToolTipService.ToolTip="适应窗口 (0)"
                             Click="Fit_Click" AutomationProperties.Name="适应窗口">
@@ -1950,8 +1993,6 @@
                                 <MenuFlyoutItem Text="逆时针旋转" Click="RotateBack_Click"/>
                                 <MenuFlyoutItem Text="顺时针旋转" Click="Rotate_Click"/>
                                 <MenuFlyoutSeparator/>
-                                <ToggleMenuFlyoutItem x:Name="WheelZoomMenuItem" Text="滚轮缩放"
-                                                      Click="WheelZoomToggle_Click"/>
                                 <MenuFlyoutItem Text="适应窗口" Click="Fit_Click"/>
                                 <MenuFlyoutItem Text="图片信息" Click="Info_Click"/>
                                 <MenuFlyoutItem Text="编辑图片" Click="Edit_Click"/>
@@ -1974,10 +2015,16 @@
                         Click="PhotoPrevious_Click" AutomationProperties.Name="上一张">
                     <FontIcon Glyph="&#xE76B;" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
                 </Button>
-                <ListView x:Name="Filmstrip" Grid.Column="1" SelectionMode="None"
+                <ListView x:Name="Filmstrip" Grid.Column="1" SelectionMode="Single"
+                          ItemContainerStyle="{StaticResource FilmstripItemStyle}"
                           IsItemClickEnabled="True" ItemClick="Filmstrip_ItemClick"
                           ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                          ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                          ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                          PointerWheelChanged="Filmstrip_PointerWheelChanged"
+                          PointerPressed="Filmstrip_PointerPressed"
+                          PointerMoved="Filmstrip_PointerMoved"
+                          PointerReleased="Filmstrip_PointerReleased"
+                          PointerCanceled="Filmstrip_PointerReleased">
                     <ListView.ItemsPanel>
                         <ItemsPanelTemplate>
                             <ItemsStackPanel Orientation="Horizontal"/>
@@ -1985,8 +2032,7 @@
                     </ListView.ItemsPanel>
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="models:MediaItem">
-                            <Border Width="72" Height="56" Margin="3,0" Background="#FF333333"
-                                    BorderBrush="{StaticResource AccentBrush}" BorderThickness="2">
+                            <Border Width="72" Height="56" Background="#FF333333">
                                 <Grid>
                                     <TextBlock Text="{x:Bind Initial, Mode=OneWay}" FontSize="22"
                                                Foreground="#59FFFFFF" HorizontalAlignment="Center"

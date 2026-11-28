@@ -5,6 +5,7 @@ using HyperMedia_Lite.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Windows.Foundation;
 using Windows.Media.Playback;
 using Windows.System;
 using Windows.UI.Core;
@@ -30,6 +31,12 @@ namespace HyperMedia_Lite
 
         private List<MediaItem> _photoItems = new List<MediaItem>();
         private int _photoIndex = -1;
+        // 胶片条滚轮 / 拖动滚动
+        private ScrollViewer _filmstripScrollViewer;
+        private uint _stripPointerId = uint.MaxValue;
+        private Point _stripStart;
+        private double _stripStartOffset;
+        private bool _stripDragging;
         private double _photoRotation;
         private int _flipH = 1;
         private int _flipV = 1;
@@ -73,11 +80,12 @@ namespace HyperMedia_Lite
             SubscribeViewModel();
             _viewModel.IsCompact = Window.Current.Bounds.Width < 641;
             _viewModel.UpdateHomeLayoutWidth(Window.Current.Bounds.Width);
-            UpdateWheelModeUI();
 
             // 触摸/鼠标左右滑动翻页（放大后滑动仍为平移画面）。
             PhotoViewer.SwipeNextRequested += (s, args) => PhotoNext_Click(this, new RoutedEventArgs());
             PhotoViewer.SwipePreviousRequested += (s, args) => PhotoPrevious_Click(this, new RoutedEventArgs());
+            PhotoViewer.WheelNextRequested += (s, args) => PhotoNext_Click(this, new RoutedEventArgs());
+            PhotoViewer.WheelPreviousRequested += (s, args) => PhotoPrevious_Click(this, new RoutedEventArgs());
 
             Loaded += MainPage_Loaded;
         }
@@ -1218,6 +1226,8 @@ namespace HyperMedia_Lite
             var item = _photoItems[_photoIndex];
             PhotoTitle.Text = item.Title;
             PhotoCounter.Text = $"{_photoIndex + 1} / {_photoItems.Count}";
+            Filmstrip.SelectedIndex = _photoIndex;
+            CenterFilmstripItem(_photoIndex);
             _photoRotation = 0;
             _flipH = 1;
             _flipV = 1;
@@ -1415,26 +1425,155 @@ namespace HyperMedia_Lite
             SyncZoomSlider();
         }
 
-        private void WheelMode_Click(object sender, RoutedEventArgs e)
+        private ScrollViewer GetFilmstripScrollViewer()
         {
-            PhotoViewerSettings.MouseWheelMode =
-                PhotoViewerSettings.MouseWheelMode == "Zoom" ? "Scroll" : "Zoom";
-            UpdateWheelModeUI();
+            if (_filmstripScrollViewer == null)
+            {
+                _filmstripScrollViewer = FindDescendantScrollViewer(Filmstrip);
+            }
+            return _filmstripScrollViewer;
         }
 
-        private void WheelZoomToggle_Click(object sender, RoutedEventArgs e)
+        private static ScrollViewer FindDescendantScrollViewer(DependencyObject parent)
         {
-            PhotoViewerSettings.MouseWheelMode =
-                WheelZoomMenuItem.IsChecked ? "Zoom" : "Scroll";
-            UpdateWheelModeUI();
+            int count = VisualTreeHelper.GetChildrenCount(parent);
+            for (int i = 0; i < count; i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                if (child is ScrollViewer viewer)
+                {
+                    return viewer;
+                }
+                var found = FindDescendantScrollViewer(child);
+                if (found != null)
+                {
+                    return found;
+                }
+            }
+            return null;
         }
 
-        private void UpdateWheelModeUI()
+        /// <summary>把当前图片滚动到胶片条中央。</summary>
+        private void CenterFilmstripItem(int index)
         {
-            bool zoom = PhotoViewerSettings.MouseWheelMode == "Zoom";
-            WheelZoomMenuItem.IsChecked = zoom;
-            ToolTipService.SetToolTip(WheelModeButton,
-                zoom ? "滚轮：缩放（点击切换为平移）" : "滚轮：平移（点击切换为缩放）");
+            if (index < 0 || index >= Filmstrip.Items.Count)
+            {
+                return;
+            }
+
+            Filmstrip.ScrollIntoView(Filmstrip.Items[index]);
+            Filmstrip.UpdateLayout();
+            var viewer = GetFilmstripScrollViewer();
+            var container = Filmstrip.ContainerFromIndex(index) as FrameworkElement;
+            if (viewer == null || container == null)
+            {
+                return;
+            }
+
+            Point position = container.TransformToVisual(Filmstrip).TransformPoint(new Point(0, 0));
+            double max = Math.Max(0, viewer.ExtentWidth - viewer.ViewportWidth);
+            double target = viewer.HorizontalOffset + position.X
+                + container.ActualWidth / 2 - Filmstrip.ActualWidth / 2;
+            viewer.ChangeView(Math.Max(0, Math.Min(max, target)), null, null);
+        }
+
+        private void Filmstrip_PointerWheelChanged(object sender, PointerRoutedEventArgs e)
+        {
+            var viewer = GetFilmstripScrollViewer();
+            if (viewer == null)
+            {
+                return;
+            }
+
+            int delta = e.GetCurrentPoint(Filmstrip).Properties.MouseWheelDelta;
+            if (delta == 0)
+            {
+                return;
+            }
+
+            double max = Math.Max(0, viewer.ExtentWidth - viewer.ViewportWidth);
+            if (max <= 0)
+            {
+                return;
+            }
+
+            double before = viewer.HorizontalOffset;
+            double target = Math.Max(0, Math.Min(max, before + (delta > 0 ? -96 : 96)));
+            viewer.ChangeView(target, null, null);
+            e.Handled = true;
+            DebugLog.Write("WHEEL", $"Filmstrip delta={delta} offset {before:F0} -> {viewer.HorizontalOffset:F0}");
+        }
+
+        private void Filmstrip_PointerPressed(object sender, PointerRoutedEventArgs e)
+        {
+            var viewer = GetFilmstripScrollViewer();
+            if (viewer == null || _stripPointerId != uint.MaxValue)
+            {
+                return;
+            }
+
+            _stripPointerId = e.Pointer.PointerId;
+            _stripStart = e.GetCurrentPoint(Filmstrip).Position;
+            _stripStartOffset = viewer.HorizontalOffset;
+            _stripDragging = false;
+        }
+
+        private void Filmstrip_PointerMoved(object sender, PointerRoutedEventArgs e)
+        {
+            if (_stripPointerId != e.Pointer.PointerId)
+            {
+                return;
+            }
+
+            Point current = e.GetCurrentPoint(Filmstrip).Position;
+            double dx = current.X - _stripStart.X;
+            if (!_stripDragging && Math.Abs(dx) < 4)
+            {
+                return;
+            }
+            if (!_stripDragging)
+            {
+                _stripDragging = true;
+                Filmstrip.CapturePointer(e.Pointer);
+            }
+
+            var viewer = GetFilmstripScrollViewer();
+            if (viewer != null)
+            {
+                double max = Math.Max(0, viewer.ExtentWidth - viewer.ViewportWidth);
+                viewer.ChangeView(Math.Max(0, Math.Min(max, _stripStartOffset - dx)), null, null);
+            }
+            e.Handled = true;
+        }
+
+        private void Filmstrip_PointerReleased(object sender, PointerRoutedEventArgs e)
+        {
+            if (_stripPointerId != e.Pointer.PointerId)
+            {
+                return;
+            }
+
+            bool captured = false;
+            foreach (var pointer in Filmstrip.PointerCaptures)
+            {
+                if (pointer.PointerId == e.Pointer.PointerId)
+                {
+                    captured = true;
+                    break;
+                }
+            }
+            if (captured)
+            {
+                Filmstrip.ReleasePointerCapture(e.Pointer);
+            }
+
+            bool wasDragging = _stripDragging;
+            _stripPointerId = uint.MaxValue;
+            _stripDragging = false;
+            if (wasDragging)
+            {
+                e.Handled = true;
+            }
         }
 
         private void Filmstrip_ItemClick(object sender, ItemClickEventArgs e)
