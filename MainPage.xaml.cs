@@ -73,6 +73,11 @@ namespace HyperMedia_Lite
             SubscribeViewModel();
             _viewModel.IsCompact = Window.Current.Bounds.Width < 641;
             _viewModel.UpdateHomeLayoutWidth(Window.Current.Bounds.Width);
+            UpdateWheelModeUI();
+
+            // 触摸/鼠标左右滑动翻页（放大后滑动仍为平移画面）。
+            PhotoViewer.SwipeNextRequested += (s, args) => PhotoNext_Click(this, new RoutedEventArgs());
+            PhotoViewer.SwipePreviousRequested += (s, args) => PhotoPrevious_Click(this, new RoutedEventArgs());
 
             Loaded += MainPage_Loaded;
         }
@@ -1408,6 +1413,28 @@ namespace HyperMedia_Lite
         {
             // 双击交由控件处理缩放，这里仅同步滑条（缩放事件已在控件内触发）。
             SyncZoomSlider();
+        }
+
+        private void WheelMode_Click(object sender, RoutedEventArgs e)
+        {
+            PhotoViewerSettings.MouseWheelMode =
+                PhotoViewerSettings.MouseWheelMode == "Zoom" ? "Scroll" : "Zoom";
+            UpdateWheelModeUI();
+        }
+
+        private void WheelZoomToggle_Click(object sender, RoutedEventArgs e)
+        {
+            PhotoViewerSettings.MouseWheelMode =
+                WheelZoomMenuItem.IsChecked ? "Zoom" : "Scroll";
+            UpdateWheelModeUI();
+        }
+
+        private void UpdateWheelModeUI()
+        {
+            bool zoom = PhotoViewerSettings.MouseWheelMode == "Zoom";
+            WheelZoomMenuItem.IsChecked = zoom;
+            ToolTipService.SetToolTip(WheelModeButton,
+                zoom ? "滚轮：缩放（点击切换为平移）" : "滚轮：平移（点击切换为缩放）");
         }
 
         private void Filmstrip_ItemClick(object sender, ItemClickEventArgs e)

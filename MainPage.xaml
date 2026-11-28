@@ -1885,6 +1885,11 @@
                             Foreground="{StaticResource OverlaySliderFillBrush}"
                             Background="{StaticResource OverlaySliderTrackBrush}"
                             AutomationProperties.Name="缩放"/>
+                    <Button x:Name="WheelModeButton" Style="{StaticResource OverlayIconButtonStyle}" Margin="0,0,4,0"
+                            ToolTipService.ToolTip="滚轮模式" Click="WheelMode_Click"
+                            AutomationProperties.Name="鼠标滚轮模式">
+                        <TextBlock Text="滚轮" FontSize="10" Foreground="White"/>
+                    </Button>
                     <Button x:Name="PhotoFitButton" Style="{StaticResource OverlayIconButtonStyle}" Margin="0,0,4,0"
                             ToolTipService.ToolTip="适应窗口 (0)"
                             Click="Fit_Click" AutomationProperties.Name="适应窗口">
@@ -1945,6 +1950,8 @@
                                 <MenuFlyoutItem Text="逆时针旋转" Click="RotateBack_Click"/>
                                 <MenuFlyoutItem Text="顺时针旋转" Click="Rotate_Click"/>
                                 <MenuFlyoutSeparator/>
+                                <ToggleMenuFlyoutItem x:Name="WheelZoomMenuItem" Text="滚轮缩放"
+                                                      Click="WheelZoomToggle_Click"/>
                                 <MenuFlyoutItem Text="适应窗口" Click="Fit_Click"/>
                                 <MenuFlyoutItem Text="图片信息" Click="Info_Click"/>
                                 <MenuFlyoutItem Text="编辑图片" Click="Edit_Click"/>

@@ -76,6 +76,10 @@ namespace HyperMedia_Lite.Controls
         public event EventHandler ZoomFactorChanged;
         public event EventHandler ImageChanged;
         public event EventHandler DoubleTappedOccurred;
+        /// <summary>图片处于适应窗口状态时向左滑动，请求显示下一张。</summary>
+        public event EventHandler SwipeNextRequested;
+        /// <summary>图片处于适应窗口状态时向右滑动，请求显示上一张。</summary>
+        public event EventHandler SwipePreviousRequested;
 
         public float CurrentZoomFactor => Scroller.ZoomFactor;
 
@@ -98,6 +102,13 @@ namespace HyperMedia_Lite.Controls
         private DispatcherTimer _zoomBadgeTimer;
         private float _lastBadgeZoom = -1f;
         private readonly Storyboard _zoomBadgeFade = new Storyboard();
+
+        // 鼠标拖动平移放大后的图片。
+        private int _panPointerId = -1;
+        private Point _panStart;
+        private double _panStartX;
+        private double _panStartY;
+        private bool _panMoved;
 
         public ImageViewer()
         {
@@ -400,37 +411,192 @@ namespace HyperMedia_Lite.Controls
         private void Scroller_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
         {
             Point position = e.GetPosition(Scroller);
-            float target = Math.Abs(Scroller.ZoomFactor - 1f) < 0.02f ? DoubleTapZoomTarget : 1f;
-            float clamped = Math.Max(Scroller.MinZoomFactor, Math.Min(Scroller.MaxZoomFactor, target));
-            double offsetX = position.X * clamped - Math.Max(0, (Scroller.ViewportWidth - TheImage.ActualWidth * clamped) / 2);
-            double offsetY = position.Y * clamped - Math.Max(0, (Scroller.ViewportHeight - TheImage.ActualHeight * clamped) / 2);
-            ChangeView(clamped, offsetX, offsetY);
-            ShowZoomBadge();
+            float target = IsAtFitZoom || _lastFitZoom <= 0
+                ? DoubleTapZoomTarget
+                : _lastFitZoom;
+            ZoomAt(position, target / Scroller.ZoomFactor);
             e.Handled = true;
             DoubleTappedOccurred?.Invoke(this, EventArgs.Empty);
         }
 
-        private void Scroller_PointerWheelChanged(object sender, PointerRoutedEventArgs e)
+        /// <summary>
+        /// 触摸滑动 / 鼠标拖动翻页：仅在适应窗口时触发，放大后拖动仍然用于平移画面。
+        /// </summary>
+        private void Scroller_ManipulationCompleted(object sender, ManipulationCompletedRoutedEventArgs e)
         {
-            var control = Window.Current.CoreWindow.GetKeyState(VirtualKey.Control);
-            if (control != CoreVirtualKeyStates.Down)
+            if (!IsAtFitZoom || _lastFitZoom <= 0)
             {
                 return;
             }
 
-            int delta = e.GetCurrentPoint(Scroller).Properties.MouseWheelDelta;
-            Point position = e.GetCurrentPoint(Scroller).Position;
-            ZoomAt(position, delta > 0 ? WheelZoomStep : 1f / WheelZoomStep);
+            double dx = e.Cumulative.Translation.X;
+            double dy = e.Cumulative.Translation.Y;
+            // UWP 的速度字段叫 Linear（Point，DIP/毫秒），Cumulative / Velocities 都是结构体。
+            double vx = e.Velocities.Linear.X;
+            bool horizontal = Math.Abs(dx) >= Math.Abs(dy) * 1.3;
+            bool dragged = Math.Abs(dx) > 70 && horizontal;
+            bool flicked = Math.Abs(vx) > 1.4 && Math.Abs(dx) > 20 && horizontal;
+
+            if (!dragged && !flicked)
+            {
+                return;
+            }
+
+            if (dx < 0)
+            {
+                SwipeNextRequested?.Invoke(this, EventArgs.Empty);
+            }
+            else
+            {
+                SwipePreviousRequested?.Invoke(this, EventArgs.Empty);
+            }
             e.Handled = true;
+        }
+
+        private void Scroller_PointerWheelChanged(object sender, PointerRoutedEventArgs e)
+        {
+            var point = e.GetCurrentPoint(Scroller);
+            if (point.PointerDevice.PointerDeviceType != Windows.Devices.Input.PointerDeviceType.Mouse)
+            {
+                return;
+            }
+
+            int delta = point.Properties.MouseWheelDelta;
+            if (delta == 0)
+            {
+                return;
+            }
+
+            if (PhotoViewerSettings.MouseWheelMode == "Scroll")
+            {
+                // 滚轮平移画面；按住 Shift 改为横向平移。
+                bool shift = Window.Current.CoreWindow.GetKeyState(VirtualKey.Shift) == CoreVirtualKeyStates.Down;
+                double amount = delta > 0 ? -64 : 64;
+                if (shift)
+                {
+                    double maxX = Math.Max(0, Scroller.ExtentWidth - Scroller.ViewportWidth);
+                    ChangeView(Scroller.ZoomFactor,
+                        Clamp(Scroller.HorizontalOffset + amount, 0, maxX), null);
+                }
+                else
+                {
+                    double maxY = Math.Max(0, Scroller.ExtentHeight - Scroller.ViewportHeight);
+                    ChangeView(Scroller.ZoomFactor, null,
+                        Clamp(Scroller.VerticalOffset + amount, 0, maxY));
+                }
+                e.Handled = true;
+                return;
+            }
+
+            // 滚轮缩放；按住 Ctrl 时步长更大，方便快速放大。
+            var control = Window.Current.CoreWindow.GetKeyState(VirtualKey.Control);
+            bool fast = control == CoreVirtualKeyStates.Down;
+            float step = fast ? WheelZoomStep * WheelZoomStep : WheelZoomStep;
+            Point position = point.Position;
+            ZoomAt(position, delta > 0 ? step : 1f / step);
+            e.Handled = true;
+        }
+
+        private static double Clamp(double value, double min, double max)
+        {
+            return Math.Max(min, Math.Min(max, value));
+        }
+
+        private bool IsMousePointer(PointerRoutedEventArgs e)
+        {
+            return e.GetCurrentPoint(Scroller).PointerDevice.PointerDeviceType
+                == Windows.Devices.Input.PointerDeviceType.Mouse;
+        }
+
+        private void Scroller_PointerPressed(object sender, PointerRoutedEventArgs e)
+        {
+            // 适应窗口时没有可平移的内容，保留双击缩放；放大后才接管鼠标拖动。
+            if (!IsMousePointer(e) || IsAtFitZoom)
+            {
+                return;
+            }
+            var point = e.GetCurrentPoint(Scroller);
+            if (!point.Properties.IsLeftButtonPressed)
+            {
+                return;
+            }
+
+            _panPointerId = e.Pointer.PointerId;
+            _panStart = point.Position;
+            _panStartX = Scroller.HorizontalOffset;
+            _panStartY = Scroller.VerticalOffset;
+            _panMoved = false;
+            Scroller.CapturePointer(e.Pointer);
+        }
+
+        private void Scroller_PointerMoved(object sender, PointerRoutedEventArgs e)
+        {
+            if (_panPointerId != e.Pointer.PointerId)
+            {
+                return;
+            }
+
+            Point current = e.GetCurrentPoint(Scroller).Position;
+            double dx = current.X - _panStart.X;
+            double dy = current.Y - _panStart.Y;
+            if (!_panMoved && Math.Abs(dx) + Math.Abs(dy) < 3)
+            {
+                return;
+            }
+            _panMoved = true;
+
+            double maxX = Math.Max(0, Scroller.ExtentWidth - Scroller.ViewportWidth);
+            double maxY = Math.Max(0, Scroller.ExtentHeight - Scroller.ViewportHeight);
+            ChangeView(Scroller.ZoomFactor,
+                Clamp(_panStartX - dx, 0, maxX),
+                Clamp(_panStartY - dy, 0, maxY));
+            e.Handled = true;
+        }
+
+        private void Scroller_PointerReleased(object sender, PointerRoutedEventArgs e)
+        {
+            if (_panPointerId != e.Pointer.PointerId)
+            {
+                return;
+            }
+            _panPointerId = -1;
+            if (Scroller.HasPointerCapture(e.Pointer.PointerId))
+            {
+                Scroller.ReleasePointerCapture(e.Pointer);
+            }
         }
 
         public void ZoomAt(Point center, float factor)
         {
+            float oldZoom = Scroller.ZoomFactor;
             float zoom = Math.Max(Scroller.MinZoomFactor,
-                Math.Min(Scroller.MaxZoomFactor, Scroller.ZoomFactor * factor));
-            double offsetX = center.X * zoom - Scroller.ViewportWidth / 2;
-            double offsetY = center.Y * zoom - Scroller.ViewportHeight / 2;
-            ChangeView(zoom, Math.Max(0, offsetX), Math.Max(0, offsetY));
+                Math.Min(Scroller.MaxZoomFactor, oldZoom * factor));
+            if (Math.Abs(zoom - oldZoom) < 0.0001f || oldZoom <= 0)
+            {
+                return;
+            }
+
+            double viewportW = Scroller.ViewportWidth;
+            double viewportH = Scroller.ViewportHeight;
+            double imageW = TheImage.ActualWidth;
+            double imageH = TheImage.ActualHeight;
+
+            // 指针下的图片像素在缩放后保持不动。
+            double leftOld = (viewportW - imageW * oldZoom) / 2 - Scroller.HorizontalOffset;
+            double topOld = (viewportH - imageH * oldZoom) / 2 - Scroller.VerticalOffset;
+            double relX = (center.X - leftOld) / oldZoom;
+            double relY = (center.Y - topOld) / oldZoom;
+
+            double newW = imageW * zoom;
+            double newH = imageH * zoom;
+            double leftNew = center.X - relX * zoom;
+            double topNew = center.Y - relY * zoom;
+            double offsetX = (viewportW - newW) / 2 - leftNew;
+            double offsetY = (viewportH - newH) / 2 - topNew;
+
+            offsetX = Math.Max(0, Math.Min(offsetX, Math.Max(0, newW - viewportW)));
+            offsetY = Math.Max(0, Math.Min(offsetY, Math.Max(0, newH - viewportH)));
+            ChangeView(zoom, offsetX, offsetY);
             ShowZoomBadge();
         }
 
