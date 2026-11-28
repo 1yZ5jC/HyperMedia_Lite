@@ -91,6 +91,17 @@ namespace HyperMedia_Lite.Controls
 
         public bool IsAtFitZoom => _lastFitZoom > 0 && Math.Abs(CurrentZoomFactor - _lastFitZoom) < 0.01f;
 
+        /// <summary>适应窗口时显示透明触摸板，放大后交还给 ScrollViewer。</summary>
+        private void UpdateTouchOverlay()
+        {
+            bool show = IsAtFitZoom;
+            if (show != (TouchOverlay.Visibility == Visibility.Visible))
+            {
+                TouchOverlay.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+                DebugLog.Write("TOUCH", $"ImageViewer overlay={(show ? "visible" : "collapsed")}");
+            }
+        }
+
         private bool _suppressViewChange;
         private float _lastFitZoom = -1f;
         private float _targetZoom = -1f;
@@ -117,6 +128,9 @@ namespace HyperMedia_Lite.Controls
 
         // 鼠标拖动平移放大后的图片。
         private uint _panPointerId = uint.MaxValue;
+        private uint _touchSwipePointerId = uint.MaxValue;
+        private Point _touchSwipeStart;
+        private bool _touchSwipeHorizontal;
         private Point _panStart;
         private double _panStartX;
         private double _panStartY;
@@ -149,6 +163,125 @@ namespace HyperMedia_Lite.Controls
             // 普通 XAML handler 从此不再触发；必须用 handledEventsToo 注册才能持续接管。
             Scroller.AddHandler(UIElement.PointerWheelChangedEvent,
                 new PointerEventHandler(Scroller_PointerWheelChanged), true);
+
+            // 触摸屏左右滑动同样会被 ScrollViewer 标记为 Handled，普通 handler 收不到。
+            // 整条 manipulation 链路都用 handledEventsToo 注册，便于确认事件在哪一步丢失。
+            Scroller.AddHandler(UIElement.ManipulationStartingEvent,
+                new ManipulationStartingEventHandler(Scroller_ManipulationStarting), true);
+            Scroller.AddHandler(UIElement.ManipulationStartedEvent,
+                new ManipulationStartedEventHandler(Scroller_ManipulationStarted), true);
+            Scroller.AddHandler(UIElement.ManipulationDeltaEvent,
+                new ManipulationDeltaEventHandler(Scroller_ManipulationDelta), true);
+            Scroller.AddHandler(UIElement.ManipulationCompletedEvent,
+                new ManipulationCompletedEventHandler(Scroller_ManipulationCompleted), true);
+
+            // 触摸滑动改走 Pointer 事件：ScrollViewer 会把 manipulation 吃掉，但 Pointer 可用。
+            Scroller.AddHandler(UIElement.PointerPressedEvent,
+                new PointerEventHandler(Scroller_PointerPressed), true);
+            Scroller.AddHandler(UIElement.PointerMovedEvent,
+                new PointerEventHandler(Scroller_PointerMoved), true);
+            Scroller.AddHandler(UIElement.PointerReleasedEvent,
+                new PointerEventHandler(Scroller_PointerReleased), true);
+            Scroller.AddHandler(UIElement.PointerCanceledEvent,
+                new PointerEventHandler(Scroller_PointerReleased), true);
+        }
+
+        private void TouchOverlay_ManipulationStarting(object sender, ManipulationStartingRoutedEventArgs e)
+        {
+            _touchDeltaLogCount = 0;
+            _pinchStartZoom = CurrentZoomFactor;
+            _pinchActive = false;
+            e.Handled = true;
+            DebugLog.Write("TOUCH", $"Overlay starting mode={TouchOverlay.ManipulationMode} zoom={_pinchStartZoom:F3}");
+        }
+
+        private void TouchOverlay_ManipulationStarted(object sender, ManipulationStartedRoutedEventArgs e)
+        {
+            DebugLog.Write("TOUCH", $"Overlay started device={e.PointerDeviceType} " +
+                $"pos=({e.Position.X:F0},{e.Position.Y:F0})");
+        }
+
+        private void TouchOverlay_ManipulationDelta(object sender, ManipulationDeltaRoutedEventArgs e)
+        {
+            double scale = e.Cumulative.Scale;
+            if (!_pinchActive && Math.Abs(scale - 1.0) > 0.02)
+            {
+                _pinchActive = true;
+            }
+
+            if (_pinchActive)
+            {
+                // 双指捏合：以手势中心为锚点缩放，Scale 是相对手势开始时的累计倍率。
+                float target = Math.Max(Scroller.MinZoomFactor,
+                    Math.Min(Scroller.MaxZoomFactor, (float)(_pinchStartZoom * scale)));
+                ZoomAt(e.Position, target / CurrentZoomFactor);
+                if (_touchDeltaLogCount++ < 6)
+                {
+                    DebugLog.Write("TOUCH", $"Overlay pinch scale={scale:F3} target={target:F3} " +
+                        $"center=({e.Position.X:F0},{e.Position.Y:F0})");
+                }
+                e.Handled = true;
+                return;
+            }
+
+            if (_touchDeltaLogCount++ < 6)
+            {
+                DebugLog.Write("TOUCH", $"Overlay delta dx={e.Cumulative.Translation.X:F0} " +
+                    $"dy={e.Cumulative.Translation.Y:F0}");
+            }
+        }
+
+        private void TouchOverlay_ManipulationCompleted(object sender, ManipulationCompletedRoutedEventArgs e)
+        {
+            double dx = e.Cumulative.Translation.X;
+            double dy = e.Cumulative.Translation.Y;
+            DebugLog.Write("TOUCH", $"Overlay completed device={e.PointerDeviceType} dx={dx:F0} dy={dy:F0} pinch={_pinchActive}");
+
+            if (!_pinchActive && e.PointerDeviceType == Windows.Devices.Input.PointerDeviceType.Touch
+                && Math.Abs(dx) > 70 && Math.Abs(dx) > Math.Abs(dy) * 1.3)
+            {
+                if (dx < 0) SwipeNextRequested?.Invoke(this, EventArgs.Empty);
+                else SwipePreviousRequested?.Invoke(this, EventArgs.Empty);
+            }
+            _pinchActive = false;
+            e.Handled = true;
+        }
+
+        private void TouchOverlay_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
+        {
+            Scroller_DoubleTapped(sender, e);
+        }
+
+        private void TouchOverlay_PointerWheelChanged(object sender, PointerRoutedEventArgs e)
+        {
+            Scroller_PointerWheelChanged(sender, e);
+        }
+
+        private int _touchDeltaLogCount;
+        private float _pinchStartZoom = 1f;
+        private bool _pinchActive;
+
+        private void Scroller_ManipulationStarting(object sender, ManipulationStartingRoutedEventArgs e)
+        {
+            _touchDeltaLogCount = 0;
+            DebugLog.Write("TOUCH", $"ImageViewer starting " +
+                $"mode={Scroller.ManipulationMode} fit={IsAtFitZoom} zoom={CurrentZoomFactor:F3}");
+        }
+
+        private void Scroller_ManipulationStarted(object sender, ManipulationStartedRoutedEventArgs e)
+        {
+            DebugLog.Write("TOUCH", $"ImageViewer started device={e.PointerDeviceType} " +
+                $"pos=({e.Position.X:F0},{e.Position.Y:F0})");
+        }
+
+        private void Scroller_ManipulationDelta(object sender, ManipulationDeltaRoutedEventArgs e)
+        {
+            if (_touchDeltaLogCount++ < 6)
+            {
+                DebugLog.Write("TOUCH", $"ImageViewer delta device={e.PointerDeviceType} " +
+                    $"x={e.Cumulative.Translation.X:F0} y={e.Cumulative.Translation.Y:F0} " +
+                    $"isInertial={e.IsInertial}");
+            }
         }
 
         private static void OnSourceChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -389,6 +522,7 @@ namespace HyperMedia_Lite.Controls
             _lastFitZoom = fit;
 
             ChangeView(fit);
+            UpdateTouchOverlay();
             LoadingRing.Visibility = Visibility.Collapsed;
             LoadingRing.IsActive = false;
             TheImage.Opacity = UwpCompat.HasContractV2 ? 1 : TheImage.Opacity;
@@ -445,6 +579,17 @@ namespace HyperMedia_Lite.Controls
         /// </summary>
         private void Scroller_ManipulationCompleted(object sender, ManipulationCompletedRoutedEventArgs e)
         {
+            double logDx = e.Cumulative.Translation.X;
+            double logDy = e.Cumulative.Translation.Y;
+            DebugLog.Write("TOUCH", $"ImageViewer completed device={e.PointerDeviceType} " +
+                $"dx={logDx:F0} dy={logDy:F0} vx={e.Velocities.Linear.X:F2} " +
+                $"fit={IsAtFitZoom} lastFit={_lastFitZoom:F3} zoom={CurrentZoomFactor:F3}");
+
+            // 只让触摸屏单指左右滑切图；触摸板仍按滚轮模式设置处理。
+            if (e.PointerDeviceType != Windows.Devices.Input.PointerDeviceType.Touch)
+            {
+                return;
+            }
             if (!IsAtFitZoom || _lastFitZoom <= 0)
             {
                 return;
@@ -457,6 +602,9 @@ namespace HyperMedia_Lite.Controls
             bool horizontal = Math.Abs(dx) >= Math.Abs(dy) * 1.3;
             bool dragged = Math.Abs(dx) > 70 && horizontal;
             bool flicked = Math.Abs(vx) > 1.4 && Math.Abs(dx) > 20 && horizontal;
+
+            DebugLog.Write("TOUCH", $"swipe dx={dx:F0} dy={dy:F0} vx={vx:F2} " +
+                $"dragged={dragged} flicked={flicked} zoom={CurrentZoomFactor:F3}");
 
             if (!dragged && !flicked)
             {
@@ -572,12 +720,33 @@ namespace HyperMedia_Lite.Controls
 
         private void Scroller_PointerPressed(object sender, PointerRoutedEventArgs e)
         {
+            var point = e.GetCurrentPoint(Scroller);
+            bool touch = point.PointerDevice.PointerDeviceType
+                == Windows.Devices.Input.PointerDeviceType.Touch;
+            DebugLog.Write("TOUCH", $"ImageViewer pressed device={point.PointerDevice.PointerDeviceType} " +
+                $"id={e.Pointer.PointerId} fit={IsAtFitZoom} zoom={CurrentZoomFactor:F3}");
+
+            if (touch && IsAtFitZoom)
+            {
+                // 适应窗口时用 Pointer 自己判定左右滑动，不依赖被 ScrollViewer 吃掉的 manipulation。
+                _touchSwipePointerId = e.Pointer.PointerId;
+                _touchSwipeStart = point.Position;
+                _touchSwipeHorizontal = false;
+                _touchDeltaLogCount = 0;
+                // 关掉 ScrollViewer 的手势处理，否则 Direct Manipulation 会在按下后
+                // 立刻吞掉后续 Pointer / Manipulation 事件。
+                Scroller.ManipulationMode = ManipulationModes.None;
+                DebugLog.Write("TOUCH", $"ImageViewer touch mode -> None");
+                Scroller.CapturePointer(e.Pointer);
+                e.Handled = true;
+                return;
+            }
+
             // 适应窗口时没有可平移的内容，保留双击缩放；放大后才接管鼠标拖动。
             if (!IsMousePointer(e) || IsAtFitZoom)
             {
                 return;
             }
-            var point = e.GetCurrentPoint(Scroller);
             if (!point.Properties.IsLeftButtonPressed)
             {
                 return;
@@ -593,6 +762,23 @@ namespace HyperMedia_Lite.Controls
 
         private void Scroller_PointerMoved(object sender, PointerRoutedEventArgs e)
         {
+            if (_touchSwipePointerId == e.Pointer.PointerId)
+            {
+                Point touchPoint = e.GetCurrentPoint(Scroller).Position;
+                double tx = touchPoint.X - _touchSwipeStart.X;
+                double ty = touchPoint.Y - _touchSwipeStart.Y;
+                if (Math.Abs(tx) > 12 && Math.Abs(tx) > Math.Abs(ty) * 1.2)
+                {
+                    _touchSwipeHorizontal = true;
+                }
+                if (_touchDeltaLogCount++ < 6)
+                {
+                    DebugLog.Write("TOUCH", $"ImageViewer pointer move dx={tx:F0} dy={ty:F0} horizontal={_touchSwipeHorizontal}");
+                }
+                e.Handled = true;
+                return;
+            }
+
             if (_panPointerId != e.Pointer.PointerId)
             {
                 return;
@@ -617,6 +803,46 @@ namespace HyperMedia_Lite.Controls
 
         private void Scroller_PointerReleased(object sender, PointerRoutedEventArgs e)
         {
+            if (_touchSwipePointerId == e.Pointer.PointerId)
+            {
+                Point touchPoint = e.GetCurrentPoint(Scroller).Position;
+                double dx = touchPoint.X - _touchSwipeStart.X;
+                double dy = touchPoint.Y - _touchSwipeStart.Y;
+                bool touchCaptured = false;
+                foreach (var capturedPointer in Scroller.PointerCaptures)
+                {
+                    if (capturedPointer.PointerId == e.Pointer.PointerId)
+                    {
+                        touchCaptured = true;
+                        break;
+                    }
+                }
+                if (touchCaptured)
+                {
+                    Scroller.ReleasePointerCapture(e.Pointer);
+                }
+                _touchSwipePointerId = uint.MaxValue;
+                _touchSwipeHorizontal = false;
+                Scroller.ManipulationMode = ManipulationModes.All;
+                DebugLog.Write("TOUCH", $"ImageViewer touch mode -> All");
+
+                bool horizontal = Math.Abs(dx) > 70 && Math.Abs(dx) > Math.Abs(dy) * 1.3;
+                DebugLog.Write("TOUCH", $"ImageViewer pointer release dx={dx:F0} dy={dy:F0} horizontal={horizontal}");
+                if (horizontal)
+                {
+                    if (dx < 0)
+                    {
+                        SwipeNextRequested?.Invoke(this, EventArgs.Empty);
+                    }
+                    else
+                    {
+                        SwipePreviousRequested?.Invoke(this, EventArgs.Empty);
+                    }
+                }
+                e.Handled = true;
+                return;
+            }
+
             if (_panPointerId != e.Pointer.PointerId)
             {
                 return;
@@ -681,6 +907,7 @@ namespace HyperMedia_Lite.Controls
                 _targetZoom = zoom;
                 _lastOffsetX = Scroller.HorizontalOffset;
                 _lastOffsetY = Scroller.VerticalOffset;
+                UpdateTouchOverlay();
             }
             if ((e.IsIntermediate || !IsAtFitZoom) && Math.Abs(zoom - _lastBadgeZoom) > 0.005f)
             {

@@ -153,14 +153,6 @@
                                         </VisualState.Setters>
                                     </VisualState>
                                 </VisualStateGroup>
-                                <VisualStateGroup x:Name="SelectionStates">
-                                    <VisualState x:Name="Unselected"/>
-                                    <VisualState x:Name="Selected">
-                                        <VisualState.Setters>
-                                            <Setter Target="RootBorder.BorderBrush" Value="{StaticResource AccentBrush}"/>
-                                        </VisualState.Setters>
-                                    </VisualState>
-                                </VisualStateGroup>
                             </VisualStateManager.VisualStateGroups>
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
@@ -1306,6 +1298,28 @@
               PointerMoved="PlayerOverlay_PointerMoved">
             <!-- 14393+ 时在代码中动态注入 MediaPlayerElement；10240 上该 XAML 类型不存在 -->
             <Grid x:Name="VideoHost" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+            <!-- 视频轨解码失败（常见于 HDR / H.265 缺少系统编解码器）时的提示 -->
+            <Border x:Name="VideoCodecWarning" Visibility="Collapsed"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Background="#F21C1C1C" BorderBrush="#FF555555" BorderThickness="1"
+                    Padding="24" MaxWidth="520">
+                <StackPanel>
+                    <TextBlock Text="视频画面无法解码" FontSize="16" FontWeight="SemiBold"
+                               Foreground="White"/>
+                    <TextBlock x:Name="VideoCodecWarningText" FontSize="12" Foreground="#CCCCCC"
+                               TextWrapping="Wrap" Margin="0,10,0,0"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
+                        <Button Content="用系统播放器打开" Padding="14,6" Margin="0,0,10,0"
+                                Background="#33FFFFFF" Foreground="White" BorderThickness="1"
+                                Click="OpenVideoExternally_Click"/>
+                        <Button Content="关闭" Padding="14,6"
+                                Background="Transparent" Foreground="White" BorderThickness="1"
+                                Click="CloseVideoWarning_Click"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
             <Grid x:Name="AudioPanel" Visibility="Collapsed" HorizontalAlignment="Stretch"
                   VerticalAlignment="Stretch" Margin="16,72,16,150">
 
@@ -1449,39 +1463,6 @@
                 </Grid>
             </Grid>
 
-            <!-- 全部歌词面板：完整歌词列表，点击行可跳转播放位置 -->
-            <Border x:Name="FullLyricPanel" Grid.ColumnSpan="2" HorizontalAlignment="Right"
-                    VerticalAlignment="Stretch" Width="360" Margin="0,64,0,0"
-                    Background="#F21C1C1C" BorderBrush="#FF333333" BorderThickness="1,0,0,0"
-                    Visibility="Collapsed">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-                    <Grid Grid.Row="0" Padding="14,10" Background="#FF252525">
-                        <TextBlock Text="全部歌词" FontSize="14" FontWeight="SemiBold"
-                                   Foreground="White" VerticalAlignment="Center"/>
-                        <Button Style="{StaticResource OverlayIconButtonStyle}" Width="32" Height="32"
-                                HorizontalAlignment="Right" Click="CloseFullLyric_Click"
-                                ToolTipService.ToolTip="关闭" AutomationProperties.Name="关闭全部歌词">
-                            <FontIcon Glyph="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="White"/>
-                        </Button>
-                    </Grid>
-                    <ListView x:Name="FullLyricList" Grid.Row="1" ItemsSource="{Binding Lyrics}"
-                              SelectionMode="None" IsItemClickEnabled="True"
-                              ItemClick="FullLyric_ItemClick" Padding="0,4">
-                        <ListView.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock x:Name="FullLyricText" Text="{Binding Text}"
-                                           FontSize="15" Foreground="#AAFFFFFF" TextWrapping="Wrap"
-                                           Margin="14,7" IsHitTestVisible="False"/>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
-                </Grid>
-            </Border>
-
             <!-- 自绘字幕层（外挂 SRT/VTT/ASS，10240 可用） -->
             <Border x:Name="SubtitleLayer" HorizontalAlignment="Center" VerticalAlignment="Bottom"
                     Margin="0,0,0,150" MaxWidth="900" Padding="16,8" IsHitTestVisible="False"
@@ -1513,13 +1494,6 @@
                             ToolTipService.ToolTip="播放队列" Command="{Binding ToggleQueuePanelCommand}"
                             AutomationProperties.Name="播放队列">
                         <FontIcon Glyph="&#xEA37;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="White"/>
-                    </Button>
-                    <!-- 歌词按钮只对音频有意义，视频播放页隐藏 -->
-                    <Button Style="{StaticResource OverlayIconButtonStyle}" Width="40" Height="36"
-                            ToolTipService.ToolTip="全部歌词（点击跳转）" Click="ToggleFullLyric_Click"
-                            Visibility="{Binding IsCurrentVideo, ConverterParameter=Invert, Converter={StaticResource BoolToVisibility}}"
-                            AutomationProperties.Name="全部歌词">
-                        <FontIcon Glyph="&#xE8FD;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="White"/>
                     </Button>
                     <Button Style="{StaticResource OverlayIconButtonStyle}" Width="40" Height="36"
                             ToolTipService.ToolTip="分享" Command="{Binding ShareCurrentCommand}"
@@ -2018,13 +1992,12 @@
                 <ListView x:Name="Filmstrip" Grid.Column="1" SelectionMode="Single"
                           ItemContainerStyle="{StaticResource FilmstripItemStyle}"
                           IsItemClickEnabled="True" ItemClick="Filmstrip_ItemClick"
+                          ScrollViewer.HorizontalScrollMode="Enabled"
+                          ScrollViewer.VerticalScrollMode="Disabled"
                           ScrollViewer.HorizontalScrollBarVisibility="Auto"
                           ScrollViewer.VerticalScrollBarVisibility="Disabled"
                           PointerWheelChanged="Filmstrip_PointerWheelChanged"
-                          PointerPressed="Filmstrip_PointerPressed"
-                          PointerMoved="Filmstrip_PointerMoved"
-                          PointerReleased="Filmstrip_PointerReleased"
-                          PointerCanceled="Filmstrip_PointerReleased">
+                          >
                     <ListView.ItemsPanel>
                         <ItemsPanelTemplate>
                             <ItemsStackPanel Orientation="Horizontal"/>
@@ -2045,6 +2018,16 @@
                         </DataTemplate>
                     </ListView.ItemTemplate>
                 </ListView>
+
+                <!-- 胶片条触摸/鼠标手势覆盖层：统一处理轻点切图与横向滑动滚动 -->
+                <Grid x:Name="FilmstripOverlay" Grid.Column="1" Background="Transparent"
+                      ManipulationMode="TranslateX"
+                      ManipulationStarting="FilmstripOverlay_ManipulationStarting"
+                      ManipulationCompleted="FilmstripOverlay_ManipulationCompleted"
+                      PointerPressed="FilmstripOverlay_PointerPressed"
+                      PointerReleased="FilmstripOverlay_PointerReleased"
+                      PointerWheelChanged="FilmstripOverlay_PointerWheelChanged"/>
+
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0">
                     <TextBlock x:Name="PhotoCounter" FontSize="12" Foreground="#CCFFFFFF"
                                VerticalAlignment="Center" Margin="0,0,8,0"/>

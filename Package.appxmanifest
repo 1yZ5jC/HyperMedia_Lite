@@ -10,7 +10,7 @@
   <Identity
     Name="YoungZhouCorp.HyperMedia.UWP.Lite"
     Publisher="CN=Alan"
-    Version="1.0.8.0" />
+    Version="1.0.9.0" />
 
   <mp:PhoneIdentity PhoneProductId="a5f4e146-c05c-4d49-ba4f-2649f18f2489" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 

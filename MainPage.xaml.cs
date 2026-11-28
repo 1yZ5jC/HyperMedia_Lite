@@ -1,4 +1,4 @@
-﻿using HyperMedia_Lite.Helpers;
+using HyperMedia_Lite.Helpers;
 using HyperMedia_Lite.Models;
 using HyperMedia_Lite.Services;
 using HyperMedia_Lite.ViewModels;
@@ -31,12 +31,8 @@ namespace HyperMedia_Lite
 
         private List<MediaItem> _photoItems = new List<MediaItem>();
         private int _photoIndex = -1;
-        // 胶片条滚轮 / 拖动滚动
+        // 胶片条滚轮 / 手势滚动
         private ScrollViewer _filmstripScrollViewer;
-        private uint _stripPointerId = uint.MaxValue;
-        private Point _stripStart;
-        private double _stripStartOffset;
-        private bool _stripDragging;
         private double _photoRotation;
         private int _flipH = 1;
         private int _flipV = 1;
@@ -46,6 +42,7 @@ namespace HyperMedia_Lite
         private double _slideElapsed;
         private int _photoLoadId;
         private DispatcherTimer _slideTimer;
+        private DispatcherTimer _videoProbeTimer;
         private FrameworkElement _videoElement;
         private MediaElement _legacyVideoElement;
         private MediaItem _externalVideoItem;
@@ -538,6 +535,10 @@ namespace HyperMedia_Lite
         {
             bool isVideo = item != null && item.Kind == MediaKind.Video;
 
+            VideoCodecWarning.Visibility = Visibility.Collapsed;
+            _videoProbeTimer?.Stop();
+            _videoProbeTimer = null;
+
             if (isVideo && !UwpCompat.HasMediaPlayerElement && _playback.VideoBackend == null)
             {
                 // 极端兜底：MediaElement 也不可用时才交系统播放器。
@@ -562,6 +563,7 @@ namespace HyperMedia_Lite
             if (isVideo)
             {
                 ShowVideoBars();
+                StartVideoDecodeProbe();
             }
             else
             {
@@ -569,6 +571,76 @@ namespace HyperMedia_Lite
                 VideoTopBar.Visibility = Visibility.Visible;
                 VideoBottomBar.Visibility = Visibility.Visible;
             }
+        }
+
+        private void StartVideoDecodeProbe()
+        {
+            if (!UwpCompat.HasMediaPlayerElement || _playback.Player?.PlaybackSession == null)
+            {
+                return;
+            }
+
+            _videoProbeTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1500) };
+            int ticks = 0;
+            _videoProbeTimer.Tick += (s, args) =>
+            {
+                ticks++;
+                var session = _playback.Player?.PlaybackSession;
+                if (session == null || _playback.CurrentItem?.Kind != MediaKind.Video
+                    || PlayerOverlay.Visibility != Visibility.Visible)
+                {
+                    _videoProbeTimer?.Stop();
+                    return;
+                }
+
+                if (session.NaturalVideoHeight > 0)
+                {
+                    VideoCodecWarning.Visibility = Visibility.Collapsed;
+                    _videoProbeTimer?.Stop();
+                    return;
+                }
+
+                if (session.PlaybackState != MediaPlaybackState.Playing && ticks < 6)
+                {
+                    return;
+                }
+
+                string subtype = "未识别";
+                string decoder = "未知";
+                try
+                {
+                    var item = _playback.Player.Source as Windows.Media.Playback.MediaPlaybackItem;
+                    if (item != null && item.VideoTracks.Count > 0)
+                    {
+                        var track = item.VideoTracks[0];
+                        subtype = track.GetEncodingProperties().Subtype;
+                        decoder = track.SupportInfo.DecoderStatus.ToString();
+                    }
+                }
+                catch { }
+
+                VideoCodecWarningText.Text =
+                    $"检测到音频轨，但视频轨没有输出画面（编码：{subtype}，解码器状态：{decoder}）。\n" +
+                    "HDR / H.265（HEVC Main10）需要系统安装对应编解码器，且显示器支持 HDR。请安装「HEVC 视频扩展」，或改用系统播放器打开。";
+                VideoCodecWarning.Visibility = Visibility.Visible;
+                DebugLog.Write("VIDEO", $"video decode probe: audio-only, subtype={subtype}, decoder={decoder}, state={session.PlaybackState}");
+                _videoProbeTimer?.Stop();
+            };
+            _videoProbeTimer.Start();
+        }
+
+        private void OpenVideoExternally_Click(object sender, RoutedEventArgs e)
+        {
+            var item = _playback.CurrentItem ?? _externalVideoItem;
+            if (item?.File != null)
+            {
+                _ = Launcher.LaunchFileAsync(item.File);
+            }
+        }
+
+        private void CloseVideoWarning_Click(object sender, RoutedEventArgs e)
+        {
+            VideoCodecWarning.Visibility = Visibility.Collapsed;
         }
 
         private void ShowVideoBars()
@@ -824,10 +896,6 @@ namespace HyperMedia_Lite
                     ScrollToIndexCentered(list, index);
                 }
 
-                if (FullLyricPanel.Visibility == Visibility.Visible)
-                {
-                    ScrollFullLyricToCurrent();
-                }
             }
             catch { }
         }
@@ -919,42 +987,6 @@ namespace HyperMedia_Lite
             {
                 _viewModel.SeekToLyricCommand.Execute(line);
             }
-        }
-
-        private void ToggleFullLyric_Click(object sender, RoutedEventArgs e)
-        {
-            FullLyricPanel.Visibility = FullLyricPanel.Visibility == Visibility.Visible
-                ? Visibility.Collapsed : Visibility.Visible;
-            if (FullLyricPanel.Visibility == Visibility.Visible)
-            {
-                ScrollFullLyricToCurrent();
-            }
-        }
-
-        private void CloseFullLyric_Click(object sender, RoutedEventArgs e)
-        {
-            FullLyricPanel.Visibility = Visibility.Collapsed;
-        }
-
-        private void FullLyric_ItemClick(object sender, ItemClickEventArgs e)
-        {
-            if (e.ClickedItem is LyricLine line)
-            {
-                _viewModel.SeekToLyricCommand.Execute(line);
-            }
-        }
-
-        private void ScrollFullLyricToCurrent()
-        {
-            try
-            {
-                int index = _viewModel.LyricIndex;
-                if (index >= 0 && index < FullLyricList.Items.Count)
-                {
-                    ScrollToIndexCentered(FullLyricList, index);
-                }
-            }
-            catch { }
         }
 
         private void HomeNav_Click(object sender, RoutedEventArgs e)
@@ -1227,6 +1259,7 @@ namespace HyperMedia_Lite
             PhotoTitle.Text = item.Title;
             PhotoCounter.Text = $"{_photoIndex + 1} / {_photoItems.Count}";
             Filmstrip.SelectedIndex = _photoIndex;
+            UpdateFilmstripHighlight();
             CenterFilmstripItem(_photoIndex);
             _photoRotation = 0;
             _flipH = 1;
@@ -1504,78 +1537,178 @@ namespace HyperMedia_Lite
             DebugLog.Write("WHEEL", $"Filmstrip delta={delta} offset {before:F0} -> {viewer.HorizontalOffset:F0}");
         }
 
-        private void Filmstrip_PointerPressed(object sender, PointerRoutedEventArgs e)
-        {
-            var viewer = GetFilmstripScrollViewer();
-            if (viewer == null || _stripPointerId != uint.MaxValue)
-            {
-                return;
-            }
+        private bool _stripOverlaySwiped;
+        private uint _stripTapPointerId = uint.MaxValue;
+        private Point _stripTapStart;
 
-            _stripPointerId = e.Pointer.PointerId;
-            _stripStart = e.GetCurrentPoint(Filmstrip).Position;
-            _stripStartOffset = viewer.HorizontalOffset;
-            _stripDragging = false;
+        private void FilmstripOverlay_ManipulationStarting(object sender, ManipulationStartingRoutedEventArgs e)
+        {
+            _stripOverlaySwiped = false;
+            // 这里不能 Handled，否则 Tapped / Pointer 事件会被抑制，轻点无法切图。
+            DebugLog.Write("TOUCH", "Filmstrip overlay starting");
         }
 
-        private void Filmstrip_PointerMoved(object sender, PointerRoutedEventArgs e)
+        private void FilmstripOverlay_ManipulationCompleted(object sender, ManipulationCompletedRoutedEventArgs e)
         {
-            if (_stripPointerId != e.Pointer.PointerId)
-            {
-                return;
-            }
+            double dx = e.Cumulative.Translation.X;
+            double dy = e.Cumulative.Translation.Y;
+            DebugLog.Write("TOUCH", $"Filmstrip overlay completed device={e.PointerDeviceType} dx={dx:F0} dy={dy:F0}");
 
-            Point current = e.GetCurrentPoint(Filmstrip).Position;
-            double dx = current.X - _stripStart.X;
-            if (!_stripDragging && Math.Abs(dx) < 4)
+            if (Math.Abs(dx) > 12 && Math.Abs(dx) > Math.Abs(dy))
             {
-                return;
-            }
-            if (!_stripDragging)
-            {
-                _stripDragging = true;
-                Filmstrip.CapturePointer(e.Pointer);
-            }
-
-            var viewer = GetFilmstripScrollViewer();
-            if (viewer != null)
-            {
-                double max = Math.Max(0, viewer.ExtentWidth - viewer.ViewportWidth);
-                viewer.ChangeView(Math.Max(0, Math.Min(max, _stripStartOffset - dx)), null, null);
+                var viewer = GetFilmstripScrollViewer();
+                if (viewer != null)
+                {
+                    double max = Math.Max(0, viewer.ExtentWidth - viewer.ViewportWidth);
+                    double before = viewer.HorizontalOffset;
+                    viewer.ChangeView(Math.Max(0, Math.Min(max, before - dx)), null, null);
+                    DebugLog.Write("TOUCH", $"Filmstrip overlay scroll {before:F0} -> {viewer.HorizontalOffset:F0}");
+                    _stripOverlaySwiped = true;
+                }
             }
             e.Handled = true;
         }
 
-        private void Filmstrip_PointerReleased(object sender, PointerRoutedEventArgs e)
+        private void FilmstripOverlay_PointerPressed(object sender, PointerRoutedEventArgs e)
         {
-            if (_stripPointerId != e.Pointer.PointerId)
+            _stripOverlaySwiped = false;
+            _stripTapPointerId = e.Pointer.PointerId;
+            _stripTapStart = e.GetCurrentPoint(FilmstripOverlay).Position;
+            FilmstripOverlay.CapturePointer(e.Pointer);
+            DebugLog.Write("TOUCH", $"Filmstrip overlay pressed device=" +
+                $"{e.GetCurrentPoint(FilmstripOverlay).PointerDevice.PointerDeviceType} id={e.Pointer.PointerId}");
+        }
+
+        private void FilmstripOverlay_PointerReleased(object sender, PointerRoutedEventArgs e)
+        {
+            if (_stripTapPointerId != e.Pointer.PointerId)
             {
                 return;
             }
 
-            bool captured = false;
-            foreach (var pointer in Filmstrip.PointerCaptures)
+            Point p = e.GetCurrentPoint(FilmstripOverlay).Position;
+            double dx = p.X - _stripTapStart.X;
+            double dy = p.Y - _stripTapStart.Y;
+            foreach (var captured in FilmstripOverlay.PointerCaptures)
             {
-                if (pointer.PointerId == e.Pointer.PointerId)
+                if (captured.PointerId == e.Pointer.PointerId)
                 {
-                    captured = true;
+                    FilmstripOverlay.ReleasePointerCapture(e.Pointer);
                     break;
                 }
             }
-            if (captured)
+            _stripTapPointerId = uint.MaxValue;
+            DebugLog.Write("TOUCH", $"Filmstrip overlay released dx={dx:F0} dy={dy:F0} swiped={_stripOverlaySwiped}");
+
+            if (_stripOverlaySwiped || Math.Abs(dx) > 8 || Math.Abs(dy) > 8)
             {
-                Filmstrip.ReleasePointerCapture(e.Pointer);
+                return;
+            }
+            SelectFilmstripItemAt(p);
+        }
+
+        private void FilmstripOverlay_PointerWheelChanged(object sender, PointerRoutedEventArgs e)
+        {
+            Filmstrip_PointerWheelChanged(sender, e);
+        }
+
+        private void SelectFilmstripItemAt(Point position)
+        {
+            // 覆盖层本身会挡住命中测试，临时关掉才能取到下面的 ListViewItem。
+            FilmstripOverlay.IsHitTestVisible = false;
+            var elements = VisualTreeHelper.FindElementsInHostCoordinates(position, Filmstrip).ToList();
+            FilmstripOverlay.IsHitTestVisible = true;
+
+            DebugLog.Write("TOUCH", $"Filmstrip tap hit elements={elements.Count} " +
+                $"types={string.Join("/", elements.Take(4).Select(x => x.GetType().Name))}");
+
+            foreach (var element in elements)
+            {
+                ListViewItem container = FindListViewItem(element);
+                if (container?.DataContext is MediaItem media)
+                {
+                    int index = _photoItems.IndexOf(media);
+                    if (index >= 0 && index != _photoIndex)
+                    {
+                        _photoIndex = index;
+                        _ = ShowPhotoAsync();
+                    }
+                    DebugLog.Write("TOUCH", $"Filmstrip overlay tap index={index}");
+                    return;
+                }
             }
 
-            bool wasDragging = _stripDragging;
-            _stripPointerId = uint.MaxValue;
-            _stripDragging = false;
-            if (wasDragging)
+            // 命中测试拿不到容器时，用滚动偏移 + 卡片宽度直接算索引。
+            var viewer = GetFilmstripScrollViewer();
+            if (viewer == null || _photoItems.Count == 0)
             {
-                e.Handled = true;
+                return;
+            }
+            double itemWidth = 78;
+            if (Filmstrip.ContainerFromIndex(0) is FrameworkElement first && first.ActualWidth > 1)
+            {
+                itemWidth = first.ActualWidth;
+            }
+            int fallback = (int)Math.Floor((viewer.HorizontalOffset + position.X) / itemWidth);
+            DebugLog.Write("TOUCH", $"Filmstrip tap fallback index={fallback} itemWidth={itemWidth:F0} " +
+                $"offset={viewer.HorizontalOffset:F0}");
+            if (fallback >= 0 && fallback < _photoItems.Count && fallback != _photoIndex)
+            {
+                _photoIndex = fallback;
+                _ = ShowPhotoAsync();
             }
         }
 
+        private void UpdateFilmstripHighlight()
+        {
+            Brush accent = Application.Current.Resources["AccentBrush"] as Brush
+                ?? new SolidColorBrush(Windows.UI.Colors.White);
+            for (int i = 0; i < Filmstrip.Items.Count; i++)
+            {
+                ListViewItem container = Filmstrip.ContainerFromIndex(i) as ListViewItem;
+                if (container == null)
+                {
+                    continue;
+                }
+                Border border = FindNamedBorder(container, "RootBorder");
+                if (border != null)
+                {
+                    border.BorderBrush = i == _photoIndex ? accent : new SolidColorBrush(Windows.UI.Colors.Transparent);
+                }
+            }
+        }
+
+        private static Border FindNamedBorder(DependencyObject root, string name)
+        {
+            int count = VisualTreeHelper.GetChildrenCount(root);
+            for (int i = 0; i < count; i++)
+            {
+                DependencyObject child = VisualTreeHelper.GetChild(root, i);
+                if (child is Border border && border.Name == name)
+                {
+                    return border;
+                }
+                Border found = FindNamedBorder(child, name);
+                if (found != null)
+                {
+                    return found;
+                }
+            }
+            return null;
+        }
+
+        private static ListViewItem FindListViewItem(DependencyObject element)
+        {
+            while (element != null)
+            {
+                if (element is ListViewItem item)
+                {
+                    return item;
+                }
+                element = VisualTreeHelper.GetParent(element);
+            }
+            return null;
+        }
         private void Filmstrip_ItemClick(object sender, ItemClickEventArgs e)
         {
             int index = _photoItems.IndexOf(e.ClickedItem as MediaItem);

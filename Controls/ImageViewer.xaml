@@ -23,12 +23,8 @@
                       ManipulationMode="All"
                       ViewChanged="Scroller_ViewChanged"
                       DoubleTapped="Scroller_DoubleTapped"
-                       ManipulationCompleted="Scroller_ManipulationCompleted"
+                       
                       
-                       PointerPressed="Scroller_PointerPressed"
-                       PointerMoved="Scroller_PointerMoved"
-                       PointerReleased="Scroller_PointerReleased"
-                       PointerCanceled="Scroller_PointerReleased"
                       Background="Transparent">
             <Image x:Name="TheImage"
                    Stretch="Uniform"
@@ -38,6 +34,17 @@
                    SizeChanged="TheImage_SizeChanged"
                    RenderTransformOrigin="0.5,0.5"/>
         </ScrollViewer>
+
+        <!-- 适应窗口时的透明触摸板：在 ScrollViewer 之前拦截触摸，避免手势被系统吞掉。
+             放大后自动隐藏，捏合/平移仍交给 ScrollViewer。 -->
+        <Grid x:Name="TouchOverlay" Background="Transparent" Visibility="Collapsed"
+              ManipulationMode="TranslateX,Scale"
+              ManipulationStarting="TouchOverlay_ManipulationStarting"
+              ManipulationStarted="TouchOverlay_ManipulationStarted"
+              ManipulationDelta="TouchOverlay_ManipulationDelta"
+              ManipulationCompleted="TouchOverlay_ManipulationCompleted"
+              DoubleTapped="TouchOverlay_DoubleTapped"
+              PointerWheelChanged="TouchOverlay_PointerWheelChanged"/>
 
         <ProgressRing x:Name="LoadingRing"
                       Width="44" Height="44"
