@@ -4,6 +4,9 @@ using System.Threading.Tasks;
 using Windows.Foundation;
 using Windows.Graphics.Imaging;
 using Windows.Storage;
+using Windows.UI;
+using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Media.Imaging;
 
 namespace HyperMedia_Lite.Services
@@ -482,6 +485,73 @@ namespace HyperMedia_Lite.Services
                     pixels[index + 2] = Clamp((float)(pixels[index + 2] * factor));
                 }
             }
+        }
+
+        /// <summary>把已栅格化的文字像素叠加到图片上（水印）。</summary>
+        public static EditableImage ApplyWatermark(
+            EditableImage image, byte[] textPixels, int tw, int th, int x, int y)
+        {
+            if (image == null || textPixels == null || tw <= 0 || th <= 0) return image;
+
+            var result = image.Clone();
+            int w = result.Width;
+            int h = result.Height;
+            int destX = x < 0 ? w - tw + x : x;
+            int destY = y < 0 ? h - th + y : y;
+
+            for (int ty = 0; ty < th; ty++)
+            {
+                int py = destY + ty;
+                if (py < 0 || py >= h) continue;
+                for (int tx = 0; tx < tw; tx++)
+                {
+                    int px = destX + tx;
+                    if (px < 0 || px >= w) continue;
+
+                    int si = (ty * tw + tx) * 4;
+                    byte a = textPixels[si + 3];
+                    if (a == 0) continue;
+                    int di = (py * w + px) * 4;
+                    for (int c = 0; c < 3; c++)
+                    {
+                        result.Pixels[di + c] = (byte)(
+                            (textPixels[si + c] * a + result.Pixels[di + c] * (255 - a)) / 255);
+                    }
+                }
+            }
+            return result;
+        }
+
+        /// <summary>给图片加纯色边框（相框）。</summary>
+        public enum FramePosition { All, Sides, TopBottom }
+
+        public static EditableImage ApplyFrame(
+            EditableImage image, Color color, int thickness, FramePosition position = FramePosition.All)
+        {
+            if (image == null || thickness <= 0) return image;
+            var result = image.Clone();
+            int w = result.Width;
+            int h = result.Height;
+            int t = Math.Min(thickness, Math.Min(w, h) / 2);
+
+            for (int y = 0; y < h; y++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    bool insideX = x >= t && x < w - t;
+                    bool insideY = y >= t && y < h - t;
+                    bool inside = position == FramePosition.All ? insideX && insideY
+                        : position == FramePosition.Sides ? insideX
+                        : insideY;
+                    if (inside) continue;
+                    int i = (y * w + x) * 4;
+                    result.Pixels[i] = color.B;
+                    result.Pixels[i + 1] = color.G;
+                    result.Pixels[i + 2] = color.R;
+                    result.Pixels[i + 3] = color.A;
+                }
+            }
+            return result;
         }
 
         public static EditableImage Downsample(EditableImage image, int maxEdge)

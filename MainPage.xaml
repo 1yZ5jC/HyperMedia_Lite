@@ -33,6 +33,8 @@
                             Visibility="{Binding Kind, Converter={StaticResource MediaKindToVisibility}, ConverterParameter=Audio}"/>
             <MenuFlyoutItem Text="编辑图片" Click="ContextEditPhoto_Click"
                             Visibility="{Binding Kind, Converter={StaticResource MediaKindToVisibility}, ConverterParameter=Photo}"/>
+            <MenuFlyoutItem Text="设为壁纸" Click="SetWallpaper_Click"
+                            Visibility="{Binding Kind, Converter={StaticResource MediaKindToVisibility}, ConverterParameter=Photo}"/>
             <MenuFlyoutItem Text="设为磁贴轮播" Click="ContextTile_Click"
                             Visibility="{Binding Kind, Converter={StaticResource MediaKindToVisibility}, ConverterParameter=Photo}"/>
             <MenuFlyoutSeparator/>
@@ -69,6 +71,36 @@
                            Foreground="{StaticResource TextSecondaryBrush}" Margin="12,0,4,0"/>
             </Grid>
         </DataTemplate>
+        <DataTemplate x:Key="HomeCardTemplate" x:DataType="models:MediaItem">
+            <Border Padding="10"
+                    Background="#FFF8F8F8" BorderBrush="#FFE8E8E8" BorderThickness="1">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="52"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Width="48" Height="48" Background="{x:Bind FallbackBrush, Mode=OneWay}">
+                        <Grid>
+                            <TextBlock Text="{x:Bind Initial, Mode=OneWay}" FontSize="20"
+                                       Foreground="#59FFFFFF" HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       Visibility="{x:Bind HasThumbnail, Mode=OneWay, ConverterParameter=Invert, Converter={StaticResource BoolToVisibility}}"/>
+                            <Image Source="{x:Bind Thumbnail, Mode=OneWay}" Stretch="UniformToFill"
+                                   Visibility="{x:Bind HasThumbnail, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"/>
+                        </Grid>
+                    </Border>
+                    <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="{x:Bind Title, Mode=OneWay}" FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{x:Bind Subtitle, Mode=OneWay}" FontSize="11" Margin="0,3,0,0"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
         <helpers:SongRowTemplateSelector x:Key="SongRowSelector"
                                          HeaderTemplate="{StaticResource SongAlbumHeaderTemplate}"
                                          ItemTemplate="{StaticResource SongItemTemplate}"/>
@@ -87,6 +119,16 @@
             <Setter Property="Padding" Value="0"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+        </Style>
+
+        <!-- 主页卡片：撑满列表项宽度，保证每张卡片一样大 -->
+        <Style x:Key="HomeCardItemStyle" TargetType="ListViewItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <!-- 真正的卡片间距：悬停底色也随之内缩，不会铺满预留空白 -->
+            <Setter Property="Margin" Value="0,0,12,8"/>
         </Style>
 
         <Style x:Key="SongItemStyle" TargetType="ListViewItem">
@@ -279,7 +321,8 @@
         </Style>
     </Page.Resources>
 
-    <Grid x:Name="RootGrid" Background="{StaticResource PageBackgroundBrush}">
+    <Grid x:Name="RootGrid" Background="{StaticResource PageBackgroundBrush}"
+          AllowDrop="True" DragOver="RootGrid_DragOver" Drop="RootGrid_Drop">
         <VisualStateManager.VisualStateGroups>
             <VisualStateGroup x:Name="WindowWidthStates">
                 <!-- 极窄 (<420)：只保留核心操作，其余全部进「更多」菜单 -->
@@ -575,7 +618,7 @@
                            Visibility="{Binding ShowMusicTabs, Converter={StaticResource BoolToVisibility}}"/>
 
                 <Grid Margin="0,10,0,8"
-                      Visibility="{Binding IsStatsVisible, ConverterParameter=Invert, Converter={StaticResource BoolToVisibility}}">
+                      Visibility="{Binding IsToolbarVisible, Converter={StaticResource BoolToVisibility}}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
@@ -825,6 +868,90 @@
                         </DataTemplate>
                     </GridView.ItemTemplate>
                 </GridView>
+
+                <!-- 主页 -->
+                <Grid Background="{StaticResource SurfaceBrush}"
+                      Visibility="{Binding IsHomeVisible, Converter={StaticResource BoolToVisibility}}">
+                    <ScrollViewer Padding="28,24">
+                        <StackPanel Width="{Binding HomeContentWidth}" MaxWidth="1200" HorizontalAlignment="Left">
+                            <!-- 欢迎区 -->
+                            <StackPanel Margin="0,0,0,24">
+                                <Border Width="44" Height="3" Background="{StaticResource AccentBrush}"
+                                        HorizontalAlignment="Left"/>
+                                <TextBlock Text="欢迎回来" FontSize="30" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextPrimaryBrush}" Margin="0,12,0,0"/>
+                                <TextBlock Text="{Binding HomeStatsText}" FontSize="12" Margin="0,6,0,0"
+                                           Foreground="{StaticResource TextSecondaryBrush}"/>
+                            </StackPanel>
+
+                            <StackPanel x:Name="HomeContent">
+                                <StackPanel>
+                                    <TextBlock Text="最近播放" FontSize="16" FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,10"/>
+                                    <ListView ItemContainerStyle="{StaticResource HomeCardItemStyle}" ItemsSource="{Binding HomeRecent}" ItemTemplate="{StaticResource HomeCardTemplate}"
+                                              SelectionMode="None" IsItemClickEnabled="True" ItemClick="HomeMedia_ItemClick"
+                                              Visibility="{Binding HasHomeRecent, Converter={StaticResource BoolToVisibility}}">
+                                        <ListView.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <ItemsWrapGrid Orientation="Horizontal" ItemWidth="{Binding HomeItemWidth}" ItemHeight="64"/>
+                                            </ItemsPanelTemplate>
+                                        </ListView.ItemsPanel>
+                                    </ListView>
+                                    <TextBlock Text="播放任意曲目后，这里会显示你最近听过的内容。"
+                                               FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"
+                                               Visibility="{Binding HasHomeRecent, ConverterParameter=Invert, Converter={StaticResource BoolToVisibility}}"/>
+                                </StackPanel>
+
+                                <StackPanel Margin="0,20,0,0">
+                                    <TextBlock Text="常听" FontSize="16" FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,10"/>
+                                    <ListView ItemContainerStyle="{StaticResource HomeCardItemStyle}" ItemsSource="{Binding HomeTop}" ItemTemplate="{StaticResource HomeCardTemplate}"
+                                              SelectionMode="None" IsItemClickEnabled="True" ItemClick="HomeMedia_ItemClick"
+                                              Visibility="{Binding HasHomeTop, Converter={StaticResource BoolToVisibility}}">
+                                        <ListView.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <ItemsWrapGrid Orientation="Horizontal" ItemWidth="{Binding HomeItemWidth}" ItemHeight="64"/>
+                                            </ItemsPanelTemplate>
+                                        </ListView.ItemsPanel>
+                                    </ListView>
+                                    <TextBlock Text="开启「自动记录播放统计」后，常听曲目会按播放次数排在这里。"
+                                               FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"
+                                               Visibility="{Binding HasHomeTop, ConverterParameter=Invert, Converter={StaticResource BoolToVisibility}}"/>
+                                </StackPanel>
+
+                                <StackPanel Margin="0,20,0,0">
+                                    <TextBlock Text="收藏" FontSize="16" FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,10"/>
+                                    <ListView ItemContainerStyle="{StaticResource HomeCardItemStyle}" ItemsSource="{Binding HomeFavorites}" ItemTemplate="{StaticResource HomeCardTemplate}"
+                                              SelectionMode="None" IsItemClickEnabled="True" ItemClick="HomeMedia_ItemClick"
+                                              Visibility="{Binding HasHomeFavorites, Converter={StaticResource BoolToVisibility}}">
+                                        <ListView.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <ItemsWrapGrid Orientation="Horizontal" ItemWidth="{Binding HomeItemWidth}" ItemHeight="64"/>
+                                            </ItemsPanelTemplate>
+                                        </ListView.ItemsPanel>
+                                    </ListView>
+                                    <TextBlock Text="还没有收藏，点击卡片上的爱心即可收藏。"
+                                               FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"
+                                               Visibility="{Binding HasHomeFavorites, ConverterParameter=Invert, Converter={StaticResource BoolToVisibility}}"/>
+                                </StackPanel>
+
+                                <StackPanel Margin="0,20,0,0">
+                                    <TextBlock Text="最近添加" FontSize="16" FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,10"/>
+                                    <ListView ItemContainerStyle="{StaticResource HomeCardItemStyle}" ItemsSource="{Binding HomeNew}" ItemTemplate="{StaticResource HomeCardTemplate}"
+                                              SelectionMode="None" IsItemClickEnabled="True" ItemClick="HomeMedia_ItemClick">
+                                        <ListView.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <ItemsWrapGrid Orientation="Horizontal" ItemWidth="{Binding HomeItemWidth}" ItemHeight="64"/>
+                                            </ItemsPanelTemplate>
+                                        </ListView.ItemsPanel>
+                                    </ListView>
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
 
                 <!-- 统计 -->
                 <Grid Visibility="{Binding IsStatsVisible, Converter={StaticResource BoolToVisibility}}"
@@ -1345,6 +1472,11 @@
                             Visibility="{Binding IsCurrentVideo, ConverterParameter=Invert, Converter={StaticResource BoolToVisibility}}"
                             AutomationProperties.Name="全部歌词">
                         <FontIcon Glyph="&#xE8FD;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="White"/>
+                    </Button>
+                    <Button Style="{StaticResource OverlayIconButtonStyle}" Width="40" Height="36"
+                            ToolTipService.ToolTip="分享" Command="{Binding ShareCurrentCommand}"
+                            AutomationProperties.Name="分享">
+                        <FontIcon Glyph="&#xE72D;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="White"/>
                     </Button>
                     <Button Style="{StaticResource OverlayIconButtonStyle}" Width="40" Height="36"
                             ToolTipService.ToolTip="音乐信息 / 编辑元数据" Click="Metadata_Click"

@@ -14,7 +14,8 @@ namespace HyperMedia_Lite.Models
         Video,
         Photos,
         Favorites,
-        Playlists
+        Playlists,
+        Home
     }
 
     public sealed class NavItem : BindableBase

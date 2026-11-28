@@ -32,6 +32,7 @@ namespace HyperMedia_Lite
             Window.Current.CoreWindow.Activated += CoreWindow_Activated;
 
             SystemMediaControlsSwitch.IsOn = SystemMediaControlsService.IsEnabledByUser;
+            AutoStatsSwitch.IsOn = _viewModel.AutoStatsEnabled;
 
             CompatibilityText.Text = UwpCompat.HasModernPlayback
                 ? "当前系统支持应用内视频播放（MediaPlayerElement / 播放会话）。"
@@ -224,6 +225,11 @@ namespace HyperMedia_Lite
             {
                 LogStatusText.Text = "导出失败：" + ex.Message;
             }
+        }
+
+        private void AutoStatsSwitch_Toggled(object sender, RoutedEventArgs e)
+        {
+            _viewModel.AutoStatsEnabled = AutoStatsSwitch.IsOn;
         }
 
         private void StartPhotoTile_Click(object sender, RoutedEventArgs e)

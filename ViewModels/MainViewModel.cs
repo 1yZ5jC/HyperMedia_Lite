@@ -42,9 +42,25 @@ namespace HyperMedia_Lite.ViewModels
         private readonly PlaylistService _playlists = new PlaylistService();
         private readonly PlaybackService _playback = PlaybackService.Current;
         private readonly HashSet<string> _favorites = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private const string SubtitleOffsetKey = "SubtitleOffsetMs";
+        private const string AutoStatsKey = "AutoPlayStatsEnabled";
+
+        private bool _autoStatsEnabled;
+        public bool AutoStatsEnabled
+        {
+            get => _autoStatsEnabled;
+            set
+            {
+                if (SetProperty(ref _autoStatsEnabled, value))
+                {
+                    try { ApplicationData.Current.LocalSettings.Values[AutoStatsKey] = value; }
+                    catch { }
+                }
+            }
+        }
         private readonly List<MediaItem> _allItems = new List<MediaItem>();
 
-        private NavTarget _currentNav = NavTarget.Music;
+        private NavTarget _currentNav = NavTarget.Home;
         private SortMode _sortMode = SortMode.Title;
         private int _selectedTab = 2; // 默认「专辑」，与参考图一致
         private string _searchText = string.Empty;
@@ -64,6 +80,47 @@ namespace HyperMedia_Lite.ViewModels
         public ObservableCollection<Playlist> Playlists { get; } = new ObservableCollection<Playlist>();
         public ObservableCollection<MediaItem> Songs { get; } = new ObservableCollection<MediaItem>();
         public ObservableCollection<object> SongRows { get; } = new ObservableCollection<object>();
+
+        private readonly List<MediaItem> _recentPlayed = new List<MediaItem>();
+        public ObservableCollection<MediaItem> HomeRecent { get; } = new ObservableCollection<MediaItem>();
+        public ObservableCollection<MediaItem> HomeTop { get; } = new ObservableCollection<MediaItem>();
+        public ObservableCollection<MediaItem> HomeFavorites { get; } = new ObservableCollection<MediaItem>();
+        public ObservableCollection<MediaItem> HomeNew { get; } = new ObservableCollection<MediaItem>();
+        public bool IsHomeVisible => _currentNav == NavTarget.Home;
+        public bool IsToolbarVisible => _currentNav != NavTarget.Home && _currentNav != NavTarget.Stats;
+        public bool HasHomeRecent => HomeRecent.Count > 0;
+        public bool HasHomeTop => HomeTop.Count > 0;
+        public bool HasHomeFavorites => HomeFavorites.Count > 0;
+        public bool HasHomeNew => HomeNew.Count > 0;
+
+        private double _homeContentWidth = 1200;
+        /// <summary>主页内容区固定宽度：导航 72 + 内边距 56 + 滚动条 17 已扣除，最大 1200。</summary>
+        public double HomeContentWidth
+        {
+            get => _homeContentWidth;
+            private set => SetProperty(ref _homeContentWidth, value);
+        }
+
+        private double _homeItemWidth = 576;
+        /// <summary>主页卡片宽度：宽窗时约为内容区一半（两列），窄窗时占满一行（一列）。</summary>
+        public double HomeItemWidth
+        {
+            get => _homeItemWidth;
+            private set => SetProperty(ref _homeItemWidth, value);
+        }
+
+        /// <summary>按窗口宽度一次性决定内容区宽度和卡片列数，避免布局反馈循环。</summary>
+        public void UpdateHomeLayoutWidth(double windowWidth)
+        {
+            double content = Math.Min(1200, Math.Max(240, windowWidth - 145));
+            HomeContentWidth = content;
+            // 760 以下放不下两张卡片，改为一列；间距由 ListViewItem 的 Margin 提供。
+            HomeItemWidth = content >= 760 ? Math.Max(240, content / 2) : content;
+        }
+
+        public string HomeStatsText => $"音乐 {_allItems.Count(i => i.Kind == MediaKind.Audio)} · " +
+            $"视频 {_allItems.Count(i => i.Kind == MediaKind.Video)} · " +
+            $"图片 {_allItems.Count(i => i.Kind == MediaKind.Photo)}";
 
         private bool _isMultiSelect;
         public bool IsMultiSelect
@@ -162,6 +219,33 @@ namespace HyperMedia_Lite.ViewModels
         public RelayCommand PlayPlaylistCommand { get; }
         public RelayCommand ExpandPlayerCommand { get; }
         public RelayCommand ClearArtistFilterCommand { get; }
+        public RelayCommand ShareCurrentCommand { get; }
+        public RelayCommand SetVideoStretchCommand { get; }
+
+        private const string VideoStretchKey = "VideoStretchMode";
+        private string _videoStretchMode = "Uniform";
+        public string VideoStretchMode
+        {
+            get => _videoStretchMode;
+            private set
+            {
+                if (SetProperty(ref _videoStretchMode, value))
+                {
+                    try { ApplicationData.Current.LocalSettings.Values[VideoStretchKey] = value; }
+                    catch { }
+                }
+            }
+        }
+        public RelayCommand AdjustSubtitleOffsetCommand { get; }
+        public RelayCommand ResetSubtitleOffsetCommand { get; }
+        public RelayCommand StartSleepTimerCommand { get; }
+        public RelayCommand CancelSleepTimerCommand { get; }
+
+        private Windows.UI.Xaml.DispatcherTimer _sleepTimer;
+        private int _sleepRemaining;
+        public string SleepTimerText => _sleepTimer == null
+            ? "睡眠定时：关闭"
+            : $"睡眠定时：{_sleepRemaining / 60}:{_sleepRemaining % 60:00}";
         public RelayCommand AddSelectedToQueueCommand { get; }
         public RelayCommand FavoriteSelectedCommand { get; }
         public RelayCommand RemoveSelectedCommand { get; }
@@ -181,6 +265,64 @@ namespace HyperMedia_Lite.ViewModels
 
         public MainViewModel()
         {
+            try
+            {
+                object raw = ApplicationData.Current.LocalSettings.Values[SubtitleOffsetKey];
+                if (raw is int saved) _subtitleOffsetMs = saved;
+                object statsRaw = ApplicationData.Current.LocalSettings.Values[AutoStatsKey];
+                _autoStatsEnabled = statsRaw is bool auto && auto;
+                object stretchRaw = ApplicationData.Current.LocalSettings.Values[VideoStretchKey];
+                if (stretchRaw is string stretch &&
+                    (stretch == "Uniform" || stretch == "UniformToFill" || stretch == "Fill" || stretch == "None"))
+                {
+                    _videoStretchMode = stretch;
+                }
+            }
+            catch { }
+
+            AdjustSubtitleOffsetCommand = new RelayCommand(parameter =>
+            {
+                if (parameter is int delta) SubtitleOffsetMs = _subtitleOffsetMs + delta;
+            });
+            ResetSubtitleOffsetCommand = new RelayCommand(_ => SubtitleOffsetMs = 0);
+            StartSleepTimerCommand = new RelayCommand(parameter =>
+            {
+                int minutes = parameter is int m ? m : 30;
+                if (_sleepTimer != null)
+                {
+                    _sleepTimer.Stop();
+                    _sleepTimer = null;
+                }
+                _sleepRemaining = minutes * 60;
+                _sleepTimer = new Windows.UI.Xaml.DispatcherTimer
+                {
+                    Interval = TimeSpan.FromSeconds(1)
+                };
+                _sleepTimer.Tick += (s, args) =>
+                {
+                    _sleepRemaining--;
+                    if (_sleepRemaining <= 0)
+                    {
+                        _sleepTimer.Stop();
+                        _sleepTimer = null;
+                        _playback.Pause();
+                    }
+                    OnPropertyChanged(nameof(SleepTimerText));
+                };
+                _sleepTimer.Start();
+                OnPropertyChanged(nameof(SleepTimerText));
+                StatusMessage = $"睡眠定时已启动：{minutes} 分钟后暂停";
+            });
+            CancelSleepTimerCommand = new RelayCommand(_ =>
+            {
+                if (_sleepTimer != null)
+                {
+                    _sleepTimer.Stop();
+                    _sleepTimer = null;
+                    OnPropertyChanged(nameof(SleepTimerText));
+                }
+            });
+
             AddFilesCommand = new RelayCommand(_ => _ = AddFilesAsync());
             AddFolderCommand = new RelayCommand(_ => _ = AddFolderAsync());
             RefreshCommand = new RelayCommand(_ => _ = RefreshAsync());
@@ -318,6 +460,11 @@ namespace HyperMedia_Lite.ViewModels
             });
             ExpandPlayerCommand = new RelayCommand(_ => PlayerRequested?.Invoke(this, _playback.CurrentItem));
             ClearArtistFilterCommand = new RelayCommand(_ => ClearArtistFilter());
+            ShareCurrentCommand = new RelayCommand(_ => ShareCurrent());
+            SetVideoStretchCommand = new RelayCommand(parameter =>
+            {
+                if (parameter is string mode) VideoStretchMode = mode;
+            });
             AddSelectedToQueueCommand = new RelayCommand(_ => AddSelectedToQueue());
             FavoriteSelectedCommand = new RelayCommand(_ => FavoriteSelected());
             RemoveSelectedCommand = new RelayCommand(_ => RemoveSelected());
@@ -352,11 +499,13 @@ namespace HyperMedia_Lite.ViewModels
             await _playlists.LoadAsync();
             await RefreshPlaylistsAsync();
             await RefreshAsync();
-            Select(NavTarget.Music);
+            // 启动后停留主页，不再强制跳到音乐的专辑页。
+            Select(NavTarget.Home);
         }
 
         private void BuildNavItems()
         {
+            NavItems.Add(new NavItem(NavTarget.Home, "\uE80F", "主页"));
             NavItems.Add(new NavItem(NavTarget.Music, "\uE8D6", "音乐"));
             NavItems.Add(new NavItem(NavTarget.Recent, "\uE8B2", "最近添加"));
             NavItems.Add(new NavItem(NavTarget.Stats, "\uE8A5", "统计"));
@@ -432,6 +581,13 @@ namespace HyperMedia_Lite.ViewModels
             await MergeImportedAsync(added, "个媒体文件");
         }
 
+        public async System.Threading.Tasks.Task ImportDroppedFilesAsync(
+            IEnumerable<Windows.Storage.StorageFile> files)
+        {
+            var added = await _library.ImportFilesAsync(files);
+            await MergeImportedAsync(added, "个拖入的媒体文件");
+        }
+
         private async Task AddFolderAsync()
         {
             var added = await _library.PickFolderAsync();
@@ -505,6 +661,8 @@ namespace HyperMedia_Lite.ViewModels
             OnPropertyChanged(nameof(IsArtistsVisible));
             OnPropertyChanged(nameof(IsGenericVisible));
             OnPropertyChanged(nameof(IsStatsVisible));
+            OnPropertyChanged(nameof(IsHomeVisible));
+            OnPropertyChanged(nameof(IsToolbarVisible));
             OnPropertyChanged(nameof(IsPlaylistsVisible));
             OnPropertyChanged(nameof(StatsText));
             ApplyViews();
@@ -853,10 +1011,35 @@ namespace HyperMedia_Lite.ViewModels
 
         private void ApplyViews()
         {
+            BuildHomeView();
             BuildMusicViews();
             BuildGenericView();
             UpdateStatus();
             _ = LoadThumbnailsAsync();
+        }
+
+        private void BuildHomeView()
+        {
+            HomeRecent.Clear();
+            foreach (var item in _recentPlayed.Take(8)) HomeRecent.Add(item);
+
+            HomeTop.Clear();
+            foreach (var item in _allItems.Where(i => i.PlayCount > 0)
+                .OrderByDescending(i => i.PlayCount).Take(8)) HomeTop.Add(item);
+
+            HomeFavorites.Clear();
+            foreach (var item in _allItems.Where(i => i.IsFavorite).Take(8)) HomeFavorites.Add(item);
+
+            HomeNew.Clear();
+            foreach (var item in _allItems
+                .OrderByDescending(i => i.File == null ? DateTimeOffset.MinValue : i.File.DateCreated)
+                .Take(8)) HomeNew.Add(item);
+
+            OnPropertyChanged(nameof(HomeStatsText));
+            OnPropertyChanged(nameof(HasHomeRecent));
+            OnPropertyChanged(nameof(HasHomeTop));
+            OnPropertyChanged(nameof(HasHomeFavorites));
+            OnPropertyChanged(nameof(HasHomeNew));
         }
 
         private void BuildMusicViews()
@@ -1107,6 +1290,18 @@ namespace HyperMedia_Lite.ViewModels
         private void OnPlaybackItemChanged(object sender, EventArgs e)
         {
             _activeItem = _playback.CurrentItem;
+            if (_activeItem != null)
+            {
+                _recentPlayed.Remove(_activeItem);
+                _recentPlayed.Insert(0, _activeItem);
+                if (_recentPlayed.Count > 20) _recentPlayed.RemoveAt(_recentPlayed.Count - 1);
+                if (_currentNav == NavTarget.Home) BuildHomeView();
+            }
+            if (AutoStatsEnabled && _activeItem != null
+                && _activeItem.Kind != MediaKind.Photo)
+            {
+                PlayStatsService.RecordPlay(_activeItem);
+            }
             _ = UpdateTileForTrackAsync();
             _ = ApplyCoverAccentAsync(_activeItem);
             _ = SystemMediaControlsService.Current.UpdateAsync(_activeItem, _playback.IsPlaying);
@@ -1472,7 +1667,8 @@ namespace HyperMedia_Lite.ViewModels
                 }
             }
 
-            int subtitleIndex = SubtitleParser.FindCurrentIndex(_subtitles, position);
+            int subtitleIndex = SubtitleParser.FindCurrentIndex(
+                _subtitles, position + SubtitleOffsetMs / 1000.0);
             if (subtitleIndex != _subtitleIndex)
             {
                 _subtitleIndex = subtitleIndex;
@@ -1539,11 +1735,12 @@ namespace HyperMedia_Lite.ViewModels
 
         public bool IsGenericVisible => _currentNav != NavTarget.Music
             && _currentNav != NavTarget.Stats
-            && _currentNav != NavTarget.Playlists;
+            && _currentNav != NavTarget.Playlists
+            && _currentNav != NavTarget.Home;
 
         public bool IsStatsVisible => _currentNav == NavTarget.Stats;
 
-        public bool IsEmpty => !IsLoading && (_currentNav == NavTarget.Stats ? false
+        public bool IsEmpty => !IsLoading && (_currentNav == NavTarget.Stats || _currentNav == NavTarget.Home ? false
             : _currentNav == NavTarget.Music
                 ? (_selectedTab == 0 ? Songs.Count == 0 : _selectedTab == 1 ? Artists.Count == 0 : Albums.Count == 0)
                 : CurrentItems.Count == 0);
@@ -1573,6 +1770,16 @@ namespace HyperMedia_Lite.ViewModels
         public string SortDescription => _sortMode == SortMode.Title ? "标题"
             : _sortMode == SortMode.DateCreated ? "添加时间"
             : _sortMode == SortMode.Duration ? "时长" : "专辑";
+
+        public void SetStatus(string message) => StatusMessage = message;
+
+        public void ShareCurrent()
+        {
+            if (_playback.CurrentItem?.File != null)
+            {
+                Windows.ApplicationModel.DataTransfer.DataTransferManager.ShowShareUI();
+            }
+        }
 
         public string StatusMessage
         {
@@ -1730,6 +1937,26 @@ namespace HyperMedia_Lite.ViewModels
         public ObservableCollection<MediaItem> Queue => _playback.Queue;
         public MediaItem CurrentQueueItem => _playback.CurrentItem;
         public int CurrentQueueIndex => _playback.CurrentIndex;
+
+        private int _subtitleOffsetMs;
+        public int SubtitleOffsetMs
+        {
+            get => _subtitleOffsetMs;
+            private set
+            {
+                if (SetProperty(ref _subtitleOffsetMs, value))
+                {
+                    try { ApplicationData.Current.LocalSettings.Values[SubtitleOffsetKey] = value; }
+                    catch { }
+                    OnPropertyChanged(nameof(SubtitleOffsetText));
+                    UpdateLyricAndSubtitle(_playback.Position.TotalSeconds);
+                }
+            }
+        }
+
+        public string SubtitleOffsetText => _subtitleOffsetMs == 0
+            ? "字幕同步：0 ms"
+            : "字幕同步：" + (_subtitleOffsetMs > 0 ? "+" : "") + _subtitleOffsetMs + " ms";
 
         public IReadOnlyList<SubtitleLine> Subtitles => _subtitles;
 

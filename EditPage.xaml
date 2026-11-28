@@ -6,6 +6,55 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
+    <Page.Resources>
+        <!-- 深色编辑面板里的文字按钮：悬停保持白字 + 浅色底 -->
+        <Style x:Key="EditorTextButtonStyle" TargetType="Button">
+            <Setter Property="MinWidth" Value="88"/>
+            <Setter Property="MinHeight" Value="36"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="#33FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#66FFFFFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="RootBorder" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal"/>
+                                    <VisualState x:Name="PointerOver">
+                                        <VisualState.Setters>
+                                            <Setter Target="RootBorder.Background" Value="#66FFFFFF"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Pressed">
+                                        <VisualState.Setters>
+                                            <Setter Target="RootBorder.Background" Value="#88FFFFFF"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Disabled">
+                                        <VisualState.Setters>
+                                            <Setter Target="RootBorder.Opacity" Value="0.4"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="EditorSliderStyle" TargetType="Slider" BasedOn="{StaticResource PlayerSliderStyle}">
+            <Setter Property="Background" Value="{StaticResource OverlaySliderTrackBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource OverlaySliderFillBrush}"/>
+        </Style>
+    </Page.Resources>
+
     <Grid Background="#FF1A1A1A">
         <VisualStateManager.VisualStateGroups>
             <VisualStateGroup x:Name="WindowWidthStates">
@@ -14,13 +63,29 @@
                         <AdaptiveTrigger MinWindowWidth="0"/>
                     </VisualState.StateTriggers>
                     <VisualState.Setters>
-                        <Setter Target="EditPanelColumn.Width" Value="200"/>
-                        <Setter Target="EditorToolPanel.Padding" Value="8"/>
+                        <!-- 窄窗：预览占满宽度，编辑面板改为底部横排 -->
+                        <Setter Target="EditPanelColumn.Width" Value="0"/>
+                        <Setter Target="PreviewArea.(Grid.ColumnSpan)" Value="2"/>
+                        <Setter Target="EditorToolPanel.(Grid.Row)" Value="1"/>
+                        <Setter Target="EditorToolPanel.(Grid.Column)" Value="0"/>
+                        <Setter Target="EditorToolPanel.(Grid.ColumnSpan)" Value="2"/>
+                        <Setter Target="EditorToolPanel.Height" Value="300"/>
+                        <Setter Target="EditorToolPanel.Padding" Value="10"/>
+                        <!-- 窄窗工具栏：隐藏次要图标和标题，保证按钮不溢出 -->
+                        <Setter Target="EditorTitle.Visibility" Value="Collapsed"/>
+                        <Setter Target="RotateCcwButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="RotateCwButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="FlipHButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="FlipVButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="ResetButton.Margin" Value="4,0,4,0"/>
+                        <Setter Target="ResetButton.MinWidth" Value="64"/>
+                        <Setter Target="SaveButton.MinWidth" Value="78"/>
+                        <Setter Target="EditorOverflowButton.Visibility" Value="Visible"/>
                     </VisualState.Setters>
                 </VisualState>
                 <VisualState x:Name="WideLayout">
                     <VisualState.StateTriggers>
-                        <AdaptiveTrigger MinWindowWidth="1024"/>
+                        <AdaptiveTrigger MinWindowWidth="700"/>
                     </VisualState.StateTriggers>
                     <VisualState.Setters/>
                 </VisualState>
@@ -54,12 +119,18 @@
                     <FontIcon Glyph="&#xE72B;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="White"/>
                 </Button>
                 <!-- 只把标题文字区设为拖动区，返回按钮留在外面保持可点击 -->
-                <Grid Padding="12,0,0,0"
+                <Grid x:Name="EditorTitle" Padding="12,0,0,0"
                       VerticalAlignment="Center">
                     <TextBlock Text="编辑图片" FontSize="15" Foreground="White"/>
                 </Grid>
             </StackPanel>
             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button x:Name="PanelToggleButton" Width="34" Height="34" Padding="0"
+                        Style="{StaticResource EditorIconButtonStyle}"
+                        ToolTipService.ToolTip="显示 / 隐藏编辑面板" Click="TogglePanel_Click"
+                        AutomationProperties.Name="编辑面板">
+                    <FontIcon Glyph="&#xE8A0;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
+                </Button>
                 <Button Width="34" Height="34" Style="{StaticResource EditorIconButtonStyle}"
                         ToolTipService.ToolTip="撤销" Click="Undo_Click" IsEnabled="False" x:Name="UndoButton">
                     <FontIcon Glyph="&#xE7A7;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
@@ -69,41 +140,65 @@
                     <FontIcon Glyph="&#xE7A6;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
                 </Button>
                 <Button Width="34" Height="34" Style="{StaticResource EditorIconButtonStyle}"
-                        ToolTipService.ToolTip="逆时针旋转 90°" Click="RotateCcw_Click" Margin="12,0,0,0">
-                    <FontIcon Glyph="&#xE7AD;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
+                        x:Name="RotateCcwButton" ToolTipService.ToolTip="逆时针旋转 90°" Click="RotateCcw_Click" Margin="12,0,0,0">
+                    <FontIcon Glyph="&#xE80D;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
                 </Button>
                 <Button Width="34" Height="34" Style="{StaticResource EditorIconButtonStyle}"
-                        ToolTipService.ToolTip="顺时针旋转 90°" Click="RotateCw_Click" Margin="4,0,0,0">
-                    <FontIcon Glyph="&#xE7AD;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
+                        x:Name="RotateCwButton" ToolTipService.ToolTip="顺时针旋转 90°" Click="RotateCw_Click" Margin="4,0,0,0">
+                    <FontIcon Glyph="&#xE80C;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
                 </Button>
                 <Button Width="34" Height="34" Style="{StaticResource EditorIconButtonStyle}"
-                        ToolTipService.ToolTip="水平翻转" Click="FlipH_Click" Margin="4,0,0,0">
+                        x:Name="FlipHButton" ToolTipService.ToolTip="水平翻转" Click="FlipH_Click" Margin="4,0,0,0">
                     <TextBlock Text="↔" FontSize="15" Foreground="White"/>
                 </Button>
                 <Button Width="34" Height="34" Style="{StaticResource EditorIconButtonStyle}"
-                        ToolTipService.ToolTip="垂直翻转" Click="FlipV_Click" Margin="4,0,0,0">
+                        x:Name="FlipVButton" ToolTipService.ToolTip="垂直翻转" Click="FlipV_Click" Margin="4,0,0,0">
                     <TextBlock Text="↕" FontSize="15" Foreground="White"/>
                 </Button>
-                <Button Content="重置" Height="34" Margin="12,0,4,0" Padding="12,0"
+                <Button x:Name="ResetButton" Style="{StaticResource EditorTextButtonStyle}" Content="重置" Height="34" Margin="12,0,4,0" Padding="12,0"
                         Background="Transparent" Foreground="#CCFFFFFF" BorderThickness="1"
                         ToolTipService.ToolTip="还原到原图" Click="Reset_Click"/>
-                <Button Content="保存" Height="34" Padding="16,0"
+                <Button x:Name="SaveButton" Style="{StaticResource EditorTextButtonStyle}" Content="另存为…" Height="34" Padding="16,0"
                         Background="{StaticResource AccentBrush}" Foreground="White" BorderThickness="0"
                         ToolTipService.ToolTip="另存为新文件" Click="Save_Click"/>
+                <Button x:Name="EditorOverflowButton" Width="34" Height="34" Padding="0"
+                        Style="{StaticResource EditorIconButtonStyle}" Visibility="Collapsed"
+                        ToolTipService.ToolTip="更多编辑操作" AutomationProperties.Name="更多编辑操作">
+                    <FontIcon Glyph="&#xE712;" FontFamily="Segoe MDL2 Assets" FontSize="15"/>
+                    <Button.Flyout>
+                        <MenuFlyout>
+                            <MenuFlyoutItem Text="逆时针旋转 90°" Click="RotateCcw_Click"/>
+                            <MenuFlyoutItem Text="顺时针旋转 90°" Click="RotateCw_Click"/>
+                            <MenuFlyoutSeparator/>
+                            <MenuFlyoutItem Text="水平翻转" Click="FlipH_Click"/>
+                            <MenuFlyoutItem Text="垂直翻转" Click="FlipV_Click"/>
+                        </MenuFlyout>
+                    </Button.Flyout>
+                </Button>
             </StackPanel>
         </Grid>
 
         <Grid Grid.Row="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition x:Name="EditPanelColumn" Width="260"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- 调整面板 -->
-            <ScrollViewer x:Name="EditorToolPanel" Grid.Column="0" Background="#FF222222" Padding="14">
+            <!-- 调整面板：宽窗左侧栏，窄窗底部横排 -->
+            <ScrollViewer x:Name="EditorToolPanel" Grid.Row="0" Grid.Column="0"
+                          Background="#FF222222" BorderBrush="#FF444444" BorderThickness="0,0,1,0"
+                          Padding="14" VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          ScrollViewer.VerticalScrollMode="Enabled"
+                          ScrollViewer.HorizontalScrollMode="Disabled"
+                          ManipulationMode="TranslateY">
                 <StackPanel>
                     <TextBlock Text="裁剪" FontSize="14" FontWeight="SemiBold" Foreground="White" Margin="0,0,0,8"/>
-                    <Button Content="框选裁剪" HorizontalAlignment="Stretch"
+                    <Button Style="{StaticResource EditorTextButtonStyle}" Content="框选裁剪" HorizontalAlignment="Stretch"
                             Background="Transparent" Foreground="White" BorderThickness="1"
                             ToolTipService.ToolTip="在图片上拖动选择区域" Click="CropMode_Click"/>
                     <TextBlock x:Name="CropHint" FontSize="11" Foreground="#FF9A9A9A"
@@ -112,32 +207,68 @@
                     <TextBlock Text="光线与颜色" FontSize="14" FontWeight="SemiBold" Foreground="White"
                                Margin="0,20,0,10"/>
                     <TextBlock Text="亮度" FontSize="12" Foreground="#FFBBBBBB"/>
-                    <Slider x:Name="BrightnessSlider" Minimum="-100" Maximum="100" Value="0"
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Slider Style="{StaticResource EditorSliderStyle}" x:Name="BrightnessSlider" Minimum="-100" Maximum="100" Value="0"
                             ValueChanged="Adjustment_Changed"
                             Foreground="{StaticResource OverlaySliderFillBrush}"
                             Background="{StaticResource OverlaySliderTrackBrush}"/>
+                        <TextBlock Grid.Column="1" Text="{Binding Value, ElementName=BrightnessSlider}" FontSize="12" Foreground="White" VerticalAlignment="Center" Margin="8,0,0,0" MinWidth="28"/>
+                    </Grid>
                     <TextBlock Text="对比度" FontSize="12" Foreground="#FFBBBBBB"/>
-                    <Slider x:Name="ContrastSlider" Minimum="-100" Maximum="100" Value="0"
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Slider Style="{StaticResource EditorSliderStyle}" x:Name="ContrastSlider" Minimum="-100" Maximum="100" Value="0"
                             ValueChanged="Adjustment_Changed"
                             Foreground="{StaticResource OverlaySliderFillBrush}"
                             Background="{StaticResource OverlaySliderTrackBrush}"/>
+                        <TextBlock Grid.Column="1" Text="{Binding Value, ElementName=ContrastSlider}" FontSize="12" Foreground="White" VerticalAlignment="Center" Margin="8,0,0,0" MinWidth="28"/>
+                    </Grid>
                     <TextBlock Text="饱和度" FontSize="12" Foreground="#FFBBBBBB"/>
-                    <Slider x:Name="SaturationSlider" Minimum="-100" Maximum="100" Value="0"
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Slider Style="{StaticResource EditorSliderStyle}" x:Name="SaturationSlider" Minimum="-100" Maximum="100" Value="0"
                             ValueChanged="Adjustment_Changed"
                             Foreground="{StaticResource OverlaySliderFillBrush}"
                             Background="{StaticResource OverlaySliderTrackBrush}"/>
+                        <TextBlock Grid.Column="1" Text="{Binding Value, ElementName=SaturationSlider}" FontSize="12" Foreground="White" VerticalAlignment="Center" Margin="8,0,0,0" MinWidth="28"/>
+                    </Grid>
                     <TextBlock Text="色温" FontSize="12" Foreground="#FFBBBBBB"/>
-                    <Slider x:Name="TemperatureSlider" Minimum="-100" Maximum="100" Value="0"
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Slider Style="{StaticResource EditorSliderStyle}" x:Name="TemperatureSlider" Minimum="-100" Maximum="100" Value="0"
                             ValueChanged="Adjustment_Changed"
                             Foreground="{StaticResource OverlaySliderFillBrush}"
                             Background="{StaticResource OverlaySliderTrackBrush}"/>
+                        <TextBlock Grid.Column="1" Text="{Binding Value, ElementName=TemperatureSlider}" FontSize="12" Foreground="White" VerticalAlignment="Center" Margin="8,0,0,0" MinWidth="28"/>
+                    </Grid>
                     <TextBlock Text="色调" FontSize="12" Foreground="#FFBBBBBB"/>
-                    <Slider x:Name="TintSlider" Minimum="-100" Maximum="100" Value="0"
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Slider Style="{StaticResource EditorSliderStyle}" x:Name="TintSlider" Minimum="-100" Maximum="100" Value="0"
                             ValueChanged="Adjustment_Changed"
                             Foreground="{StaticResource OverlaySliderFillBrush}"
                             Background="{StaticResource OverlaySliderTrackBrush}"/>
+                        <TextBlock Grid.Column="1" Text="{Binding Value, ElementName=TintSlider}" FontSize="12" Foreground="White" VerticalAlignment="Center" Margin="8,0,0,0" MinWidth="28"/>
+                    </Grid>
                     <TextBlock Text="滤镜" FontSize="12" Foreground="#FFBBBBBB" Margin="0,8,0,0"/>
-                    <ComboBox x:Name="FilterCombo" Margin="0,4,0,0" SelectedIndex="0">
+                    <ComboBox RequestedTheme="Dark" Foreground="White" x:Name="FilterCombo" Margin="0,4,0,0" SelectedIndex="0"
+                              SelectionChanged="FilterCombo_SelectionChanged">
                         <ComboBoxItem Content="无"/>
                         <ComboBoxItem Content="黑白"/>
                         <ComboBoxItem Content="反色"/>
@@ -150,22 +281,108 @@
                     <TextBlock Text="细节" FontSize="14" FontWeight="SemiBold" Foreground="White"
                                Margin="0,20,0,10"/>
                     <TextBlock Text="模糊半径" FontSize="12" Foreground="#FFBBBBBB"/>
-                    <Slider x:Name="BlurSlider" Minimum="0" Maximum="20" Value="0"
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Slider Style="{StaticResource EditorSliderStyle}" x:Name="BlurSlider" Minimum="0" Maximum="20" Value="0"
                             ValueChanged="Adjustment_Changed"
                             Foreground="{StaticResource OverlaySliderFillBrush}"
                             Background="{StaticResource OverlaySliderTrackBrush}"/>
+                        <TextBlock Grid.Column="1" Text="{Binding Value, ElementName=BlurSlider}" FontSize="12" Foreground="White" VerticalAlignment="Center" Margin="8,0,0,0" MinWidth="28"/>
+                    </Grid>
                     <TextBlock Text="锐化" FontSize="12" Foreground="#FFBBBBBB"/>
-                    <Slider x:Name="SharpenSlider" Minimum="0" Maximum="200" Value="0"
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Slider Style="{StaticResource EditorSliderStyle}" x:Name="SharpenSlider" Minimum="0" Maximum="200" Value="0"
                             ValueChanged="Adjustment_Changed"
                             Foreground="{StaticResource OverlaySliderFillBrush}"
                             Background="{StaticResource OverlaySliderTrackBrush}"/>
+                        <TextBlock Grid.Column="1" Text="{Binding Value, ElementName=SharpenSlider}" FontSize="12" Foreground="White" VerticalAlignment="Center" Margin="8,0,0,0" MinWidth="28"/>
+                    </Grid>
                     <TextBlock Text="暗角" FontSize="12" Foreground="#FFBBBBBB"/>
-                    <Slider x:Name="VignetteSlider" Minimum="0" Maximum="100" Value="0"
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Slider Style="{StaticResource EditorSliderStyle}" x:Name="VignetteSlider" Minimum="0" Maximum="100" Value="0"
                             ValueChanged="Adjustment_Changed"
                             Foreground="{StaticResource OverlaySliderFillBrush}"
                             Background="{StaticResource OverlaySliderTrackBrush}"/>
+                        <TextBlock Grid.Column="1" Text="{Binding Value, ElementName=VignetteSlider}" FontSize="12" Foreground="White" VerticalAlignment="Center" Margin="8,0,0,0" MinWidth="28"/>
+                    </Grid>
 
-                    <Button Content="应用调整" Margin="0,20,0,0" HorizontalAlignment="Stretch"
+                    <TextBlock Text="文字水印" FontSize="14" FontWeight="SemiBold" Foreground="White"
+                               Margin="0,16,0,8"/>
+                    <TextBox x:Name="WatermarkText" PlaceholderText="输入水印文字"/>
+                    <TextBlock Text="字体" FontSize="12" Foreground="#FFBBBBBB" Margin="0,8,0,0"/>
+                    <ComboBox RequestedTheme="Dark" Foreground="White" x:Name="WatermarkFontCombo" Margin="0,4,0,0" SelectedIndex="0">
+                        <ComboBoxItem Content="微软雅黑" Tag="Microsoft YaHei"/>
+                        <ComboBoxItem Content="Segoe UI" Tag="Segoe UI"/>
+                        <ComboBoxItem Content="宋体" Tag="SimSun"/>
+                        <ComboBoxItem Content="黑体" Tag="SimHei"/>
+                        <ComboBoxItem Content="Consolas" Tag="Consolas"/>
+                    </ComboBox>
+                    <TextBlock Text="颜色" FontSize="12" Foreground="#FFBBBBBB" Margin="0,8,0,0"/>
+                    <ComboBox RequestedTheme="Dark" Foreground="White" x:Name="WatermarkColorCombo" Margin="0,4,0,0" SelectedIndex="0">
+                        <ComboBoxItem Content="白色" Tag="White"/>
+                        <ComboBoxItem Content="黑色" Tag="Black"/>
+                        <ComboBoxItem Content="红色" Tag="Red"/>
+                        <ComboBoxItem Content="强调色" Tag="Accent"/>
+                        <ComboBoxItem Content="黄色" Tag="Yellow"/>
+                    </ComboBox>
+                    <Grid Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Slider Style="{StaticResource EditorSliderStyle}" x:Name="WatermarkSizeSlider"
+                                Minimum="12" Maximum="96" Value="32"
+                                Foreground="{StaticResource OverlaySliderFillBrush}"
+                                Background="{StaticResource OverlaySliderTrackBrush}"/>
+                        <TextBlock Grid.Column="1" Text="{Binding Value, ElementName=WatermarkSizeSlider}"
+                                   FontSize="12" Foreground="White" VerticalAlignment="Center"
+                                   Margin="8,0,0,0" MinWidth="26"/>
+                    </Grid>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <Button Style="{StaticResource EditorTextButtonStyle}" Content="左上水印" Click="WatermarkTopLeft_Click" Margin="0,0,8,0"/>
+                        <Button Style="{StaticResource EditorTextButtonStyle}" Content="右下水印" Click="WatermarkBottomRight_Click"/>
+                    </StackPanel>
+
+                    <TextBlock Text="相框" FontSize="14" FontWeight="SemiBold" Foreground="White"
+                               Margin="0,18,0,8"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Slider Style="{StaticResource EditorSliderStyle}" x:Name="FrameThicknessSlider"
+                                Minimum="2" Maximum="60" Value="12"
+                                Foreground="{StaticResource OverlaySliderFillBrush}"
+                                Background="{StaticResource OverlaySliderTrackBrush}"/>
+                        <TextBlock Grid.Column="1" Text="{Binding Value, ElementName=FrameThicknessSlider}"
+                                   FontSize="12" Foreground="White" VerticalAlignment="Center"
+                                   Margin="8,0,0,0" MinWidth="26"/>
+                    </Grid>
+                    <ComboBox RequestedTheme="Dark" Foreground="White" x:Name="FrameColorCombo" Margin="0,8,0,0" SelectedIndex="0">
+                        <ComboBoxItem Content="白色" Tag="White"/>
+                        <ComboBoxItem Content="黑色" Tag="Black"/>
+                        <ComboBoxItem Content="红色" Tag="Red"/>
+                        <ComboBoxItem Content="强调色" Tag="Accent"/>
+                    </ComboBox>
+                    <ComboBox RequestedTheme="Dark" Foreground="White" x:Name="FramePositionCombo" Margin="0,8,0,0" SelectedIndex="0">
+                        <ComboBoxItem Content="四边" Tag="All"/>
+                        <ComboBoxItem Content="仅左右" Tag="Sides"/>
+                        <ComboBoxItem Content="仅上下" Tag="TopBottom"/>
+                    </ComboBox>
+                    <Button Style="{StaticResource EditorTextButtonStyle}" Content="添加相框" Click="AddFrame_Click" Margin="0,8,0,0"/>
+
+                    <Button Style="{StaticResource EditorTextButtonStyle}" Content="应用调整" Margin="0,20,0,0" HorizontalAlignment="Stretch"
                             Background="{StaticResource AccentBrush}" Foreground="White"
                             BorderThickness="0" Click="ApplyAdjustments_Click"
                             ToolTipService.ToolTip="把当前参数写入图片"/>
@@ -184,14 +401,17 @@
                 <Border x:Name="CropActions" Visibility="Collapsed" HorizontalAlignment="Center"
                         VerticalAlignment="Bottom" Margin="0,0,0,16" Background="#CC000000" Padding="8">
                     <StackPanel Orientation="Horizontal">
-                        <Button Content="应用裁剪" Click="ApplyCrop_Click" Margin="0,0,8,0"
+                        <Button Style="{StaticResource EditorTextButtonStyle}" Content="应用裁剪" Click="ApplyCrop_Click" Margin="0,0,8,0"
                                 Background="{StaticResource AccentBrush}" Foreground="White" BorderThickness="0"/>
-                        <Button Content="取消" Click="CancelCrop_Click"
+                        <Button Style="{StaticResource EditorTextButtonStyle}" Content="取消" Click="CancelCrop_Click"
                                 Background="Transparent" Foreground="White" BorderThickness="1"/>
                     </StackPanel>
                 </Border>
                 <TextBlock x:Name="StatusText" FontSize="12" Foreground="#FF9A9A9A"
                            HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,60"/>
+                <!-- 水印文字栅格化用的隐藏容器：必须在可视化树中 -->
+                <Border x:Name="WatermarkRenderHost" Opacity="0" IsHitTestVisible="False"
+                        HorizontalAlignment="Left" VerticalAlignment="Top"/>
             </Grid>
         </Grid>
     </Grid>

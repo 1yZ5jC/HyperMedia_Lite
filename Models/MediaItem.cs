@@ -131,6 +131,18 @@ namespace HyperMedia_Lite.Models
         /// <summary>右键菜单里的收藏项文字。</summary>
         public string FavoriteLabel => IsFavorite ? "取消收藏" : "收藏";
 
+        private int _playCount;
+        public int PlayCount { get => _playCount; set => SetProperty(ref _playCount, value); }
+
+        private int _skipCount;
+        public int SkipCount { get => _skipCount; set => SetProperty(ref _skipCount, value); }
+
+        private string _lastPlayed = string.Empty;
+        public string LastPlayed { get => _lastPlayed; set => SetProperty(ref _lastPlayed, value); }
+
+        private uint _rating;
+        public uint Rating { get => _rating; set => SetProperty(ref _rating, value); }
+
         /// <summary>
         /// 无缩略图时的纯色底，按标题生成，保证同一文件颜色稳定。
         /// </summary>
@@ -170,6 +182,8 @@ namespace HyperMedia_Lite.Models
                         : !string.IsNullOrWhiteSpace(album) ? album
                         : File.FileType.TrimStart('.').ToUpperInvariant() + " 音频";
                     Duration = p.Duration;
+                    Rating = p.Rating;
+                    Services.PlayStatsService.Apply(this);
                 }
                 else if (Kind == MediaKind.Video)
                 {

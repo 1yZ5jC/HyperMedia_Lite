@@ -136,6 +136,27 @@ namespace HyperMedia_Lite.Services
             return result;
         }
 
+        /// <summary>从外部拖入的文件导入媒体库（复用文件选择器的类型判断与持久化逻辑）。</summary>
+        public async Task<List<MediaItem>> ImportFilesAsync(IEnumerable<StorageFile> files)
+        {
+            var result = new List<MediaItem>();
+            if (files == null) return result;
+
+            foreach (var file in files)
+            {
+                MediaKind? kind = GetKind(file.FileType);
+                if (kind == null) continue;
+                try
+                {
+                    StorageApplicationPermissions.FutureAccessList.AddOrReplace(TokenFor(file), file);
+                }
+                catch { }
+
+                result.Add(new MediaItem(file, kind.Value));
+            }
+            return result;
+        }
+
         /// <summary>
         /// 打开文件夹选择器，选择一个文件夹并递归导入其中所有媒体文件。
         /// 文件夹访问权限会被记住，下次启动自动重新扫描其子文件夹。

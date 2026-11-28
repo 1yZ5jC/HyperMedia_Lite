@@ -68,6 +68,8 @@ namespace HyperMedia_Lite
                 FileLabel.Text = _item.File.Name;
                 PathLabel.Text = _item.Path;
                 InfoLabel.Text = $"时长 {FormatDuration(_properties.Duration)} · 码率 {_properties.Bitrate / 1000} kbps";
+                StatsLabel.Text = $"播放 {_item.PlayCount} 次 · 最后播放：{_item.LastPlayed}";
+                UpdateStars();
 
                 TitleBox.Text = _properties.Title ?? string.Empty;
                 ArtistBox.Text = _properties.Artist ?? string.Empty;
@@ -190,6 +192,31 @@ namespace HyperMedia_Lite
             {
                 StatusText.Text = "恢复封面失败：" + ex.Message;
             }
+        }
+
+        private void UpdateStars()
+        {
+            int rating = _item == null ? 0 : (int)_item.Rating;
+            var stars = new[] { Star1, Star2, Star3, Star4, Star5 };
+            for (int i = 0; i < stars.Length; i++)
+            {
+                stars[i].Content = rating >= (i + 1) * 20 ? "★" : "☆";
+            }
+        }
+
+        private void Star_Click(object sender, RoutedEventArgs e)
+        {
+            if (_item == null || !(sender is Button button) ||
+                !int.TryParse(button.Tag as string, out int star)) return;
+            uint rating = (uint)(star * 20);
+            try
+            {
+                _properties.Rating = rating;
+                Services.PlayStatsService.SetRating(_item, rating);
+            }
+            catch { }
+            UpdateStars();
+            StatusText.Text = $"评分已设为 {star} 星";
         }
 
         private void Back_Click(object sender, RoutedEventArgs e)

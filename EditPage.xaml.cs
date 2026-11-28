@@ -2,6 +2,7 @@ using HyperMedia_Lite.Models;
 using HyperMedia_Lite.Services;
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
 using Windows.Foundation;
 using Windows.Storage;
@@ -69,6 +70,8 @@ namespace HyperMedia_Lite
         protected override async void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
+            EditorToolPanel.Visibility = Window.Current.Bounds.Width < 700
+                ? Visibility.Collapsed : Visibility.Visible;
             _sourceItem = e.Parameter as MediaItem;
             if (_sourceItem == null)
             {
@@ -86,6 +89,12 @@ namespace HyperMedia_Lite
             StatusText.Text = $"{_current.Width} × {_current.Height}";
             await RefreshPreviewAsync();
             UpdateUndoRedoButtons();
+        }
+
+        private void TogglePanel_Click(object sender, RoutedEventArgs e)
+        {
+            EditorToolPanel.Visibility = EditorToolPanel.Visibility == Visibility.Visible
+                ? Visibility.Collapsed : Visibility.Visible;
         }
 
         private void Back_Click(object sender, RoutedEventArgs e)
@@ -121,7 +130,7 @@ namespace HyperMedia_Lite
             }
 
             EditableImage preview = ImageEditService.Downsample(_current, 1600).Clone();
-            ApplyParameters(preview.Pixels);
+            ApplyParameters(preview);
             PreviewImage.Source = await preview.ToBitmapAsync();
         }
 
@@ -142,8 +151,9 @@ namespace HyperMedia_Lite
             }
         }
 
-        private void ApplyParameters(byte[] pixels)
+        private void ApplyParameters(EditableImage image)
         {
+            byte[] pixels = image.Pixels;
             ImageEditService.ApplyAdjustments(pixels,
                 (int)BrightnessSlider.Value,
                 (int)ContrastSlider.Value,
@@ -156,18 +166,24 @@ namespace HyperMedia_Lite
             int blur = (int)BlurSlider.Value;
             if (blur > 0)
             {
-                ImageEditService.ApplyBoxBlur(pixels, _current.Width, _current.Height, blur);
+                ImageEditService.ApplyBoxBlur(pixels, image.Width, image.Height, blur);
             }
             double sharpen = SharpenSlider.Value / 100.0;
             if (sharpen > 0.01)
             {
-                ImageEditService.ApplySharpen(pixels, _current.Width, _current.Height, sharpen);
+                ImageEditService.ApplySharpen(pixels, image.Width, image.Height, sharpen);
             }
             float vignette = (float)(VignetteSlider.Value / 100.0);
             if (vignette > 0)
             {
-                ImageEditService.ApplyVignette(pixels, _current.Width, _current.Height, vignette);
+                ImageEditService.ApplyVignette(pixels, image.Width, image.Height, vignette);
             }
+        }
+
+        private async void FilterCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_current == null) return;
+            await RefreshPreviewAsync();
         }
 
         private void Adjustment_Changed(object sender, RangeBaseValueChangedEventArgs e)
@@ -201,8 +217,77 @@ namespace HyperMedia_Lite
                 return;
             }
             PushUndo();
-            ApplyParameters(_current.Pixels);
+            ApplyParameters(_current);
             ResetSliders();
+            await RefreshPreviewAsync();
+        }
+
+        private async System.Threading.Tasks.Task ApplyWatermarkAsync(bool topLeft)
+        {
+            if (_current == null) return;
+            string text = WatermarkText.Text.Trim();
+            if (text.Length == 0) return;
+            int size = (int)WatermarkSizeSlider.Value;
+            int x = topLeft ? 12 : -12;
+            int y = topLeft ? 12 : -12;
+
+            string font = (WatermarkFontCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? "Microsoft YaHei";
+            string colorTag = (WatermarkColorCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? "White";
+            Color color = colorTag == "Black" ? Colors.Black
+                : colorTag == "Red" ? Colors.Red
+                : colorTag == "Accent" ? ((SolidColorBrush)Application.Current.Resources["AccentBrush"]).Color
+                : colorTag == "Yellow" ? Colors.Yellow : Colors.White;
+
+            // RenderTargetBitmap 只能渲染可视化树中的元素。
+            var block = new TextBlock
+            {
+                Text = text,
+                FontSize = size,
+                FontFamily = new Windows.UI.Xaml.Media.FontFamily(font),
+                Foreground = new SolidColorBrush(color)
+            };
+            WatermarkRenderHost.Child = block;
+            try
+            {
+                var rtb = new Windows.UI.Xaml.Media.Imaging.RenderTargetBitmap();
+                await rtb.RenderAsync(block);
+                byte[] textPixels = (await rtb.GetPixelsAsync()).ToArray();
+                PushUndo();
+                _current = ImageEditService.ApplyWatermark(
+                    _current, textPixels, rtb.PixelWidth, rtb.PixelHeight, x, y);
+            }
+            finally
+            {
+                WatermarkRenderHost.Child = null;
+            }
+            await RefreshPreviewAsync();
+        }
+
+        private async void WatermarkTopLeft_Click(object sender, RoutedEventArgs e)
+        {
+            await ApplyWatermarkAsync(true);
+        }
+
+        private async void WatermarkBottomRight_Click(object sender, RoutedEventArgs e)
+        {
+            await ApplyWatermarkAsync(false);
+        }
+
+        private async void AddFrame_Click(object sender, RoutedEventArgs e)
+        {
+            if (_current == null) return;
+            string colorTag = (FrameColorCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? "White";
+            Color color = colorTag == "Black" ? Colors.Black
+                : colorTag == "Red" ? Colors.Red
+                : colorTag == "Accent" ? ((SolidColorBrush)Application.Current.Resources["AccentBrush"]).Color
+                : Colors.White;
+            string positionTag = (FramePositionCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? "All";
+            var position = positionTag == "Sides" ? ImageEditService.FramePosition.Sides
+                : positionTag == "TopBottom" ? ImageEditService.FramePosition.TopBottom
+                : ImageEditService.FramePosition.All;
+            PushUndo();
+            _current = ImageEditService.ApplyFrame(
+                _current, color, (int)FrameThicknessSlider.Value, position);
             await RefreshPreviewAsync();
         }
 

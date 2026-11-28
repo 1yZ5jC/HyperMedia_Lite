@@ -49,6 +49,8 @@ namespace HyperMedia_Lite
         {
             HyperMedia_Lite.Helpers.DebugLog.WriteStartupStep("MainPage ctor begin");
             InitializeComponent();
+            Windows.ApplicationModel.DataTransfer.DataTransferManager.GetForCurrentView().DataRequested +=
+                OnDataRequested;
             HyperMedia_Lite.Helpers.DebugLog.WriteStartupStep("MainPage InitializeComponent done");
 
             HyperMedia_Lite.Helpers.DebugLog.WriteStartupStep("MainPage before MainViewModel");
@@ -70,6 +72,7 @@ namespace HyperMedia_Lite
 
             SubscribeViewModel();
             _viewModel.IsCompact = Window.Current.Bounds.Width < 641;
+            _viewModel.UpdateHomeLayoutWidth(Window.Current.Bounds.Width);
 
             Loaded += MainPage_Loaded;
         }
@@ -540,6 +543,7 @@ namespace HyperMedia_Lite
             }
             AudioPanel.Visibility = isVideo ? Visibility.Collapsed : Visibility.Visible;
             PlayerOverlay.Visibility = Visibility.Visible;
+            ApplyVideoStretch();
             UpdateTitleBarAppearance();
 
             if (isVideo)
@@ -655,6 +659,10 @@ namespace HyperMedia_Lite
             {
                 SyncMultiSelectControls();
             }
+            if (e.PropertyName == nameof(MainViewModel.VideoStretchMode))
+            {
+                ApplyVideoStretch();
+            }
             if (e.PropertyName == "CurrentLyricText")
             {
                 UpdateLyricHighlight();
@@ -664,6 +672,24 @@ namespace HyperMedia_Lite
                 UpdateTitleBarAppearance();
             }
             // 逐字点亮由 LyricWord.IsSung 通过绑定驱动，不在此处操作 Inlines。
+        }
+
+        private void ApplyVideoStretch()
+        {
+            try
+            {
+                var stretch = (Windows.UI.Xaml.Media.Stretch)Enum.Parse(
+                    typeof(Windows.UI.Xaml.Media.Stretch), _viewModel.VideoStretchMode);
+                if (_videoElement != null)
+                {
+                    _videoElement.GetType().GetProperty("Stretch")?.SetValue(_videoElement, stretch);
+                }
+                if (_legacyVideoElement != null)
+                {
+                    _legacyVideoElement.Stretch = stretch;
+                }
+            }
+            catch { }
         }
 
         private void CoreWindow_Activated(CoreWindow sender, WindowActivatedEventArgs args)
@@ -707,6 +733,7 @@ namespace HyperMedia_Lite
         private void OnWindowSizeChanged(object sender, Windows.UI.Core.WindowSizeChangedEventArgs e)
         {
             _viewModel.IsCompact = Window.Current.Bounds.Width < 641;
+            _viewModel.UpdateHomeLayoutWidth(Window.Current.Bounds.Width);
             UpdateLyricHighlight();
         }
 
@@ -917,6 +944,56 @@ namespace HyperMedia_Lite
             catch { }
         }
 
+        private void HomeNav_Click(object sender, RoutedEventArgs e)
+        {
+            if ((sender as Button)?.Tag is string tag && Enum.TryParse(tag, out NavTarget target))
+            {
+                _viewModel.Select(target);
+            }
+        }
+
+        private void HomeMedia_ItemClick(object sender, ItemClickEventArgs e)
+        {
+            if (e.ClickedItem is MediaItem item)
+            {
+                _ = _viewModel.OpenItemAsync(item);
+            }
+        }
+
+        private void RootGrid_DragOver(object sender, Windows.UI.Xaml.DragEventArgs e)
+        {
+            try
+            {
+                e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+                if (e.DataView != null && e.DataView.Contains(
+                    Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
+                {
+                    e.DragUIOverride.IsCaptionVisible = true;
+                    e.DragUIOverride.Caption = "导入到媒体库";
+                }
+            }
+            catch { }
+        }
+
+        private async void RootGrid_Drop(object sender, Windows.UI.Xaml.DragEventArgs e)
+        {
+            try
+            {
+                if (e.DataView == null ||
+                    !e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
+                {
+                    return;
+                }
+                var items = await e.DataView.GetStorageItemsAsync();
+                var files = items.OfType<Windows.Storage.StorageFile>().ToList();
+                if (files.Count > 0)
+                {
+                    await _viewModel.ImportDroppedFilesAsync(files);
+                }
+            }
+            catch { }
+        }
+
         private void Metadata_Click(object sender, RoutedEventArgs e)
         {
             var item = _viewModel.CurrentTrack;
@@ -929,6 +1006,22 @@ namespace HyperMedia_Lite
 
         private static MediaItem ContextItem(object sender) =>
             (sender as FrameworkElement)?.DataContext as MediaItem;
+
+        private async void SetWallpaper_Click(object sender, RoutedEventArgs e)
+        {
+            var item = ContextItem(sender);
+            if (item?.File == null) return;
+            try
+            {
+                bool ok = await Windows.System.UserProfile.UserProfilePersonalizationSettings.Current
+                    .TrySetWallpaperImageAsync(item.File);
+                _viewModel.SetStatus(ok ? $"已设为壁纸：{item.Title}" : "系统拒绝设置壁纸");
+            }
+            catch (Exception ex)
+            {
+                _viewModel.SetStatus("设置壁纸失败：" + ex.Message);
+            }
+        }
 
         private void ContextPlay_Click(object sender, RoutedEventArgs e)
         {
@@ -974,6 +1067,17 @@ namespace HyperMedia_Lite
                 App.ReturnToPlayer = false;
                 Frame.Navigate(typeof(MetadataPage), item);
             }
+        }
+
+        private void OnDataRequested(
+            Windows.ApplicationModel.DataTransfer.DataTransferManager sender,
+            Windows.ApplicationModel.DataTransfer.DataRequestedEventArgs args)
+        {
+            var item = _viewModel.CurrentTrack;
+            if (item?.File == null) return;
+            args.Request.Data.Properties.Title = item.Title;
+            args.Request.Data.Properties.Description = item.Subtitle;
+            args.Request.Data.SetStorageItems(new[] { item.File });
         }
 
         private async void PictureInPicture_Click(object sender, RoutedEventArgs e)
@@ -1043,6 +1147,36 @@ namespace HyperMedia_Lite
                 catch { }
             };
             menu.Items.Add(load);
+
+            // 外挂字幕时间偏移（平台内嵌轨不支持，提示文本说明）。
+            menu.Items.Add(new MenuFlyoutSeparator());
+            menu.Items.Add(new MenuFlyoutItem { Text = _viewModel.SubtitleOffsetText, IsEnabled = false });
+            var minus = new MenuFlyoutItem { Text = "字幕延后 0.5 秒" };
+            minus.Click += (s, args) => _viewModel.AdjustSubtitleOffsetCommand.Execute(-500);
+            var plus = new MenuFlyoutItem { Text = "字幕提前 0.5 秒" };
+            plus.Click += (s, args) => _viewModel.AdjustSubtitleOffsetCommand.Execute(500);
+            var reset = new MenuFlyoutItem { Text = "重置字幕同步" };
+            reset.Click += (s, args) => _viewModel.ResetSubtitleOffsetCommand.Execute(null);
+            menu.Items.Add(minus);
+            menu.Items.Add(plus);
+            menu.Items.Add(reset);
+
+            // 视频画面模式
+            menu.Items.Add(new MenuFlyoutSeparator());
+            menu.Items.Add(new MenuFlyoutItem { Text = "画面模式", IsEnabled = false });
+            foreach (var mode in new[]
+            {
+                new Tuple<string, string>("适应（黑边）", "Uniform"),
+                new Tuple<string, string>("填充（裁切）", "UniformToFill"),
+                new Tuple<string, string>("拉伸", "Fill"),
+                new Tuple<string, string>("原始尺寸", "None")
+            })
+            {
+                var item = new MenuFlyoutItem { Text = mode.Item1 };
+                string value = mode.Item2;
+                item.Click += (s, args) => _viewModel.SetVideoStretchCommand.Execute(value);
+                menu.Items.Add(item);
+            }
 
             if (sender is Button button)
             {

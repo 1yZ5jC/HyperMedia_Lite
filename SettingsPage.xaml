@@ -155,6 +155,39 @@
                     </StackPanel>
                 </Border>
 
+                <!-- 播放 -->
+                <TextBlock Text="播放" FontSize="18" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}"/>
+                <Border Background="{StaticResource SurfaceBrush}" Padding="20" Margin="0,10,0,28">
+                    <StackPanel>
+                        <ToggleSwitch x:Name="AutoStatsSwitch" Header="自动记录播放统计"
+                                      OffContent="关闭" OnContent="开启"
+                                      Toggled="AutoStatsSwitch_Toggled"/>
+                        <TextBlock FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   Text="默认关闭。开启后自动累计每首曲目的播放次数并记录最后播放时间；可在音乐信息页查看和手动评分。"/>
+
+                        <TextBlock Text="睡眠定时" FontSize="12" Margin="0,16,0,0"
+                                   Foreground="{StaticResource TextSecondaryBrush}"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <Button Content="15 分钟" Padding="12,5" Margin="0,0,8,0"
+                                    Command="{Binding StartSleepTimerCommand}" CommandParameter="15"
+                                    Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}" BorderThickness="1"/>
+                            <Button Content="30 分钟" Padding="12,5" Margin="0,0,8,0"
+                                    Command="{Binding StartSleepTimerCommand}" CommandParameter="30"
+                                    Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}" BorderThickness="1"/>
+                            <Button Content="60 分钟" Padding="12,5" Margin="0,0,8,0"
+                                    Command="{Binding StartSleepTimerCommand}" CommandParameter="60"
+                                    Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}" BorderThickness="1"/>
+                            <Button Content="取消" Padding="12,5"
+                                    Command="{Binding CancelSleepTimerCommand}"
+                                    Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}" BorderThickness="1"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding SleepTimerText}" FontSize="11" Margin="0,8,0,0"
+                                   Foreground="{StaticResource TextSecondaryBrush}"/>
+                    </StackPanel>
+                </Border>
+
                 <!-- 动态磁贴 -->
                 <TextBlock Text="动态磁贴" FontSize="18" FontWeight="SemiBold"
                            Foreground="{StaticResource TextPrimaryBrush}"/>
